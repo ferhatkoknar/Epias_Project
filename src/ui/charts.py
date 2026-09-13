@@ -110,28 +110,32 @@ def create_ptf_forecast_chart(
         )
         xaxis_config["rangeselector"] = dict(
             buttons=[
-                dict(count=6, label="6 Saat", step="hour", stepmode="backward"),
-                dict(count=12, label="12 Saat", step="hour", stepmode="backward"),
-                dict(count=24, label="24 Saat (1G)", step="hour", stepmode="backward"),
-                dict(count=3, label="3 Gun", step="day", stepmode="backward"),
-                dict(count=7, label="7 Gun", step="day", stepmode="backward"),
-                dict(step="all", label="Tumu"),
+                dict(count=6, label="6S", step="hour", stepmode="backward"),
+                dict(count=12, label="12S", step="hour", stepmode="backward"),
+                dict(count=24, label="24S", step="hour", stepmode="backward"),
+                dict(count=3, label="3G", step="day", stepmode="backward"),
+                dict(count=7, label="7G", step="day", stepmode="backward"),
+                dict(step="all", label="Tümü"),
             ],
             bgcolor="rgba(16, 22, 34, 0.9)",
             activecolor="rgba(59, 130, 246, 0.4)",
             font=dict(color="#9ca3af", size=10, family="Inter, sans-serif"),
             bordercolor="rgba(255, 255, 255, 0.1)",
             borderwidth=1,
-            y=1.12,
-            x=0.0,
+            y=1.16,
+            x=1.0,
+            xanchor="right",
+            yanchor="bottom",
         )
     
     layout_opts = {**DARK_LAYOUT}
     layout_opts["xaxis"] = xaxis_config
+    if show_rangeslider:
+        layout_opts["margin"] = dict(l=56, r=24, t=68, b=44)
     
     fig.update_layout(
         **layout_opts,
-        title=dict(text=title, x=0.01, y=0.97),
+        title=dict(text=title, x=0.01, y=0.98, xanchor="left"),
         xaxis_title="",
         yaxis_title="TL/MWh",
         height=height,

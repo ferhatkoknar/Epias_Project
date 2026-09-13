@@ -6,7 +6,7 @@ Sade KPI kartları, temiz sidebar, emoji yok.
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
-from src.ui.styles import get_section_header_html
+from src.ui.styles import get_section_header_html, render_html
 
 
 def render_sidebar(min_date=None, max_date=None, default_date=None) -> dict:
@@ -87,12 +87,11 @@ def render_sidebar(min_date=None, max_date=None, default_date=None) -> dict:
         export_report = st.button("Teknik Rapor Al", use_container_width=True)
         
         st.markdown("---")
-        st.markdown(
+        render_html(
             '<div style="text-align:center; font-size:0.62rem; color:#4b5563; '
             'font-family: JetBrains Mono, monospace; letter-spacing:0.04em;">'
             'EPİAŞ GÖP Terminali v1.0<br>Staj Projesi — 2026'
-            '</div>',
-            unsafe_allow_html=True,
+            '</div>'
         )
     
     return {
@@ -157,7 +156,7 @@ def render_model_info(model_type: str, metrics: dict):
     else:
         model_name = "Ensemble Hibrit (CatBoost + LightGBM)"
     
-    st.markdown(f"""
+    render_html(f"""
     <div class="info-card" style="display: flex; justify-content: space-between; align-items: center;">
         <div>
             <div style="color: #6b7280; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; font-family: Inter, sans-serif;">
@@ -176,7 +175,7 @@ def render_model_info(model_type: str, metrics: dict):
             </div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
 
 def render_risk_indicator(risk_level: str, risk_color: str):
@@ -189,7 +188,7 @@ def render_risk_indicator(risk_level: str, risk_color: str):
     }
     c = color_map.get(risk_level, "#6b7280")
     
-    st.markdown(f"""
+    render_html(f"""
     <div style="
         display: inline-flex; align-items: center; gap: 8px;
         padding: 5px 14px;
@@ -206,7 +205,7 @@ def render_risk_indicator(risk_level: str, risk_color: str):
         <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:{c};"></span>
         {risk_level} Risk
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
 
 def render_trading_summary(metrics: dict):
@@ -214,7 +213,7 @@ def render_trading_summary(metrics: dict):
     total_pnl = metrics.get("total_pnl", 0)
     pnl_color = "#22c55e" if total_pnl >= 0 else "#ef4444"
     
-    st.markdown(f"""
+    render_html(f"""
     <div class="info-card">
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
             <div>
@@ -235,7 +234,7 @@ def render_trading_summary(metrics: dict):
             </div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
 
 def render_market_ticker_bar(df_day: pd.DataFrame, model_metrics: dict = None):
@@ -281,8 +280,8 @@ def render_market_ticker_bar(df_day: pd.DataFrame, model_metrics: dict = None):
         spread_val = 140.0
         sys_dir = "ENERJİ FAZLASI (PTF > SMF)"
         
-    from src.ui.styles import get_ticker_bar_html
-    st.markdown(get_ticker_bar_html(
+    from src.ui.styles import get_ticker_bar_html, render_html
+    render_html(get_ticker_bar_html(
         tsi_time_str=tsi_time_str,
         session_name=session_name,
         last_ptf=last_ptf,
@@ -290,7 +289,7 @@ def render_market_ticker_bar(df_day: pd.DataFrame, model_metrics: dict = None):
         peak_load=peak_load,
         spread_val=spread_val,
         system_direction=sys_dir,
-    ), unsafe_allow_html=True)
+    ))
 
 
 def render_navbar() -> str:
@@ -305,7 +304,6 @@ def render_navbar() -> str:
         "[07] SİSTEM REHBERİ & SRS",
     ]
     
-    st.markdown('<div class="navbar-wrapper">', unsafe_allow_html=True)
     selected_page = st.radio(
         "Navigasyon",
         options=pages,
@@ -314,9 +312,8 @@ def render_navbar() -> str:
         label_visibility="collapsed",
         key="app_navbar_selection",
     )
-    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown(f"""
+    render_html(f"""
     <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(20, 26, 38, 0.7); border: 1px solid rgba(59, 130, 246, 0.2); border-left: 4px solid #3b82f6; border-radius: 6px; padding: 9px 16px; margin-bottom: 20px;">
         <div style="display: flex; align-items: center; gap: 10px;">
             <span style="color: #64748b; font-size: 0.74rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.08em; font-family: 'JetBrains Mono', monospace;">AKTİF ÇALIŞMA ALANI:</span>
@@ -326,14 +323,14 @@ def render_navbar() -> str:
             EPİAŞ GÖP & DGP ALGORİTMİK TERMİNAL
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
     
     return selected_page
 
 
 def render_home_page(summary: dict, model_metrics: dict, trading_metrics: dict):
     """Sisteme girişte kullanıcıyı karşılayan Proje Ana Sayfası & Genel Bakış."""
-    st.markdown("""
+    render_html("""
     <div style="background: linear-gradient(135deg, rgba(20, 26, 38, 0.9), rgba(12, 16, 24, 0.95)); 
                 border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 12px; padding: 26px 30px; margin-bottom: 24px;">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
@@ -357,10 +354,10 @@ def render_home_page(summary: dict, model_metrics: dict, trading_metrics: dict):
             </div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
     
     # ─── Hızlı İstatistik Kartları ───
-    st.markdown(get_section_header_html("Sistem Performans Özeti", "Güncel model doğrulama metrikleri ve simülasyon sonuçları"), unsafe_allow_html=True)
+    render_html(get_section_header_html("Sistem Performans Özeti", "Güncel model doğrulama metrikleri ve simülasyon sonuçları"))
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("24s Ortalama PTF", f"{summary.get('avg_ptf', 0):,.0f} TL/MWh", help="Hedef gün öngörülen ortalama fiyat")
@@ -374,14 +371,14 @@ def render_home_page(summary: dict, model_metrics: dict, trading_metrics: dict):
         pnl = trading_metrics.get('total_pnl', 0)
         st.metric("Kümülatif P&L", f"{pnl:,.0f} TL", delta=f"%{trading_metrics.get('win_rate', 0):.1f} Başarı")
     
-    st.markdown("<br>", unsafe_allow_html=True)
+    render_html("<div style='height:12px;'></div>")
     
     # ─── Proje Mimarisi & Temel Modüller ───
-    st.markdown(get_section_header_html("Terminal Çalışma Alanları", "Üst navigasyon menüsünden dilediğiniz modüle geçiş yapabilirsiniz"), unsafe_allow_html=True)
+    render_html(get_section_header_html("Terminal Çalışma Alanları", "Üst navigasyon menüsünden dilediğiniz modüle geçiş yapabilirsiniz"))
     
     m1, m2, m3 = st.columns(3)
     with m1:
-        st.markdown("""
+        render_html("""
         <div class="guide-card" style="height: 100%;">
             <div class="guide-title">[MODÜL 02] 24s Fiyat Tahmin Terminali</div>
             <div class="guide-body">
@@ -393,10 +390,10 @@ def render_home_page(summary: dict, model_metrics: dict, trading_metrics: dict):
                 </ul>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
         
     with m2:
-        st.markdown("""
+        render_html("""
         <div class="guide-card" style="height: 100%;">
             <div class="guide-title">[MODÜL 03] Model Kıyaslama & Ensemble</div>
             <div class="guide-body">
@@ -408,10 +405,10 @@ def render_home_page(summary: dict, model_metrics: dict, trading_metrics: dict):
                 </ul>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
         
     with m3:
-        st.markdown("""
+        render_html("""
         <div class="guide-card" style="height: 100%;">
             <div class="guide-title">[MODÜL 04] Trading Masası & Stres Testi</div>
             <div class="guide-body">
@@ -423,12 +420,12 @@ def render_home_page(summary: dict, model_metrics: dict, trading_metrics: dict):
                 </ul>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
         
-    st.markdown("<br>", unsafe_allow_html=True)
+    render_html("<div style='height:12px;'></div>")
     
     # ─── Hızlı Başlangıç Rehberi ───
-    st.markdown("""
+    render_html("""
     <div style="background: rgba(20, 26, 38, 0.7); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 10px; padding: 18px 22px;">
         <div style="color:#f8fafc; font-size:0.95rem; font-weight:600; margin-bottom:10px; font-family:'Inter', sans-serif;">Hızlı Kullanım Talimatı</div>
         <div style="color:#94a3b8; font-size:0.84rem; line-height:1.7; font-family:'Inter', sans-serif;">
@@ -438,22 +435,22 @@ def render_home_page(summary: dict, model_metrics: dict, trading_metrics: dict):
             4. <b>[06] Saatlik Profil & Isı Haritası:</b> Günün saatleri ve haftanın günleri bazında elektrik fiyatlarının yoğunlaştığı tepe saatleri analiz edin.
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
 
 def render_documentation_page():
     """Kullanım rehberi ve EPİAŞ piyasa sözlüğü."""
-    st.markdown("""
+    render_html("""
     <div style="margin-bottom: 24px;">
         <h2 style="color:#f3f4f6; font-size:1.35rem; font-weight:700; margin-bottom:4px;">Sistem Rehberi & Enerji Piyasası Dokümantasyonu</h2>
         <div style="color:#9ca3af; font-size:0.84rem;">EPİAŞ Gün Öncesi Piyasası (GÖP), yapay zeka model mimarisi ve karar destek mekanizmaları</div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("""
+        render_html("""
         <div class="guide-card">
             <div class="guide-title">[BÖLÜM 1] EPİAŞ ve PTF (Piyasa Takas Fiyatı)</div>
             <div class="guide-body">
@@ -475,10 +472,10 @@ def render_documentation_page():
                 </ul>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
         
     with col2:
-        st.markdown("""
+        render_html("""
         <div class="guide-card">
             <div class="guide-title">[BÖLÜM 3] Yapay Zeka Mimarisi & Öznitelikler</div>
             <div class="guide-body">
@@ -505,4 +502,82 @@ def render_documentation_page():
                 </ul>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
+
+
+def render_session_schedule_table():
+    """EPİAŞ resmi gün öncesi piyasa seans takvimi tablosu."""
+    data = [
+        {"Saat (TSI)": "10:30 - 12:30", "Seans Adı": "GÖP Teklif Verme Süreci", "Açıklama": "Piyasa katılımcıları 24 saat için alış/satış tekliflerini sisteme girer.", "Durum": "TEKLİF AÇIK"},
+        {"Saat (TSI)": "12:30", "Seans Adı": "GÖP Kapı Kapanışı (Gate Closure)", "Açıklama": "Teklif girişi kesin olarak sona erer, EUPAS algoritması başlar.", "Durum": "KAPI KAPALI"},
+        {"Saat (TSI)": "13:30", "Seans Adı": "Geçici Sonuçlar & İtiraz", "Açıklama": "İlk piyasa takas fiyatları yayımlanır, katılımcı itiraz penceresi açılır.", "Durum": "KONTROL"},
+        {"Saat (TSI)": "14:00", "Seans Adı": "Kesinleşen PTF & Eşleşme İlanı", "Açıklama": "Yarının kesinleşen 24 saatlik referans fiyatı kamuoyuna duyurulur.", "Durum": "KESİNLEŞTİ"},
+        {"Saat (TSI)": "18:00 - T-1h", "Seans Adı": "Gün İçi Piyasası (GİP)", "Açıklama": "Fiziki teslimat öncesi 1 saat kalana kadar portföy dengeleme işlemleri.", "Durum": "CANLI AKTİF"},
+    ]
+    st.dataframe(pd.DataFrame(data), use_container_width=True, hide_index=True)
+
+
+def render_24h_schedule_table(df_day: pd.DataFrame):
+    """24 saatlik detaylı fiyat, tahmin, sapma ve piyasa bloku tablosu."""
+    if len(df_day) == 0:
+        return
+    
+    rows = []
+    for _, row in df_day.iterrows():
+        dt = row["datetime"]
+        hour = dt.hour
+        actual = float(row["ptf"])
+        pred = float(row.get("predicted_ptf", actual))
+        diff = pred - actual
+        diff_pct = (diff / (actual + 1e-6)) * 100
+        
+        if 17 <= hour <= 21:
+            block = "[PUANT]"
+        elif 8 <= hour < 17:
+            block = "[GÜNDÜZ]"
+        else:
+            block = "[GECE]"
+            
+        rows.append({
+            "Saat": f"{hour:02d}:00",
+            "Blok": block,
+            "Tahmin PTF (TL)": f"{pred:,.0f}",
+            "Gerçek PTF (TL)": f"{actual:,.0f}",
+            "Sapma (TL)": f"{diff:+,.0f}",
+            "Hata (%)": f"%{abs(diff_pct):.2f}",
+            "Güven Alt (TL)": f"{row.get('lower_bound', pred - 40):,.0f}",
+            "Güven Üst (TL)": f"{row.get('upper_bound', pred + 40):,.0f}",
+        })
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True, height=260)
+
+
+def render_imbalance_calculator(current_ptf: float = 2850.0, current_smf: float = 2710.0):
+    """İnteraktif EPİAŞ dengesizlik maliyeti hesaplayıcı."""
+    render_html(get_section_header_html("İnteraktif Dengesizlik Maliyeti Simülatörü", "Portföy sapmasında EPİAŞ ceza katsayıları ile net maliyet hesabı"))
+    c1, c2, c3 = st.columns([1.2, 1.4, 1.4])
+    with c1:
+        dev_mwh = st.number_input("Dengesizlik Hacmi (MWh)", min_value=1.0, max_value=500.0, value=10.0, step=5.0)
+    with c2:
+        dev_type = st.selectbox("Dengesizlik Yönü", options=["Enerji Açığı (Eksik Üretim / Fazla Tüketim)", "Enerji Fazlası (Fazla Üretim / Eksik Tüketim)"])
+    
+    if "Açığı" in dev_type:
+        penalty_rate = max(current_ptf, current_smf) * 1.03
+        total_cost = dev_mwh * penalty_rate
+        pen_text = f"Birim Ceza: {penalty_rate:,.1f} TL/MWh (max(PTF, SMF) x 1.03)"
+        res_color = "#ef4444"
+        badge_text = "ÖDENECEK CEZA"
+    else:
+        penalty_rate = min(current_ptf, current_smf) * 0.97
+        total_cost = dev_mwh * penalty_rate
+        pen_text = f"Birim Gelir: {penalty_rate:,.1f} TL/MWh (min(PTF, SMF) x 0.97)"
+        res_color = "#22c55e"
+        badge_text = "ALINACAK GELİR"
+        
+    with c3:
+        render_html(f"""
+        <div style="background: rgba(20,26,38,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px 16px; font-family:'JetBrains Mono',monospace;">
+            <div style="color:#64748b; font-size:0.68rem; text-transform:uppercase;">NET FATURA TUTARI ({badge_text}):</div>
+            <div style="color:{res_color}; font-size:1.35rem; font-weight:700; margin-top:2px;">{total_cost:,.0f} TL</div>
+            <div style="color:#94a3b8; font-size:0.68rem; margin-top:4px;">{pen_text}</div>
+        </div>
+        """)

@@ -248,15 +248,15 @@ def get_premium_css() -> str:
     .status-danger { background: #ef4444; }
     
     /* ─── Modern Tam Genişlik Navbar Stilleri ─── */
-    .navbar-wrapper {
-        background: rgba(14, 18, 26, 0.95);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 12px;
-        padding: 6px;
-        margin-bottom: 24px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    div[data-testid="stRadio"] {
+        background: rgba(14, 18, 26, 0.95) !important;
+        backdrop-filter: blur(20px) !important;
+        -webkit-backdrop-filter: blur(20px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 12px !important;
+        padding: 6px !important;
+        margin-bottom: 20px !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
         width: 100% !important;
     }
     
@@ -381,60 +381,51 @@ def get_premium_css() -> str:
 
 
 import textwrap
+import streamlit as st
+
+
+def clean_html(raw_html: str) -> str:
+    """Minify and clean HTML string so markdown/Streamlit never parses it as a code block."""
+    return "".join(line.strip() for line in raw_html.splitlines() if line.strip())
+
+
+def render_html(html_code: str):
+    """Safely render HTML without markdown code-block conversion."""
+    cleaned = clean_html(html_code)
+    try:
+        st.html(cleaned)
+    except Exception:
+        st.markdown(cleaned, unsafe_allow_html=True)
 
 
 def get_header_html() -> str:
     """Kurumsal terminal başlığı."""
-    return textwrap.dedent("""
+    raw = """
     <div class="terminal-header">
         <div style="display: flex; justify-content: space-between; align-items: flex-end;">
             <div>
-                <div style="
-                    font-size: 0.65rem;
-                    color: #4b5563;
-                    font-family: 'JetBrains Mono', monospace;
-                    letter-spacing: 0.12em;
-                    text-transform: uppercase;
-                    margin-bottom: 6px;
-                ">EPİAŞ Gün Öncesi Piyasası</div>
-                <div style="
-                    font-size: 1.4rem;
-                    font-weight: 700;
-                    font-family: 'Inter', sans-serif;
-                    color: #e5e7eb;
-                    letter-spacing: -0.02em;
-                ">PTF Tahmin & Trading Terminali</div>
+                <div style="font-size: 0.65rem; color: #4b5563; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 6px;">EPİAŞ Gün Öncesi Piyasası</div>
+                <div style="font-size: 1.4rem; font-weight: 700; font-family: 'Inter', sans-serif; color: #e5e7eb; letter-spacing: -0.02em;">PTF Tahmin & Trading Terminali</div>
             </div>
-            <div style="
-                font-size: 0.68rem;
-                color: #4b5563;
-                font-family: 'JetBrains Mono', monospace;
-                text-align: right;
-                letter-spacing: 0.04em;
-            ">
+            <div style="font-size: 0.68rem; color: #4b5563; font-family: 'JetBrains Mono', monospace; text-align: right; letter-spacing: 0.04em;">
                 <span class="status-indicator status-active"></span> Sistem Aktif
             </div>
         </div>
     </div>
-    """).strip()
+    """
+    return clean_html(raw)
 
 
 def get_section_header_html(title: str, subtitle: str = "") -> str:
     """Bölüm başlığı."""
     sub = f'<div style="color: #4b5563; font-size: 0.72rem; font-family: Inter, sans-serif; margin-top: 2px;">{subtitle}</div>' if subtitle else ""
-    return textwrap.dedent(f"""
+    raw = f"""
     <div style="margin: 20px 0 12px 0;">
-        <div style="
-            font-size: 0.7rem;
-            color: #6b7280;
-            font-family: 'Inter', sans-serif;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-        ">{title}</div>
+        <div style="font-size: 0.7rem; color: #6b7280; font-family: 'Inter', sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;">{title}</div>
         {sub}
     </div>
-    """).strip()
+    """
+    return clean_html(raw)
 
 
 def get_ticker_bar_html(
@@ -450,22 +441,8 @@ def get_ticker_bar_html(
     Bloomberg/Refinitiv tarzı üst piyasa bilgi ve seans bantı.
     """
     dir_color = "#22c55e" if "FAZLASI" in system_direction else "#f59e0b" if "DENGE" in system_direction else "#ef4444"
-    return textwrap.dedent(f"""
-    <div style="
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        background: #0f141d;
-        border: 1px solid rgba(255, 255, 255, 0.07);
-        border-radius: 8px;
-        padding: 8px 16px;
-        margin-bottom: 18px;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.72rem;
-        color: #9ca3af;
-        gap: 12px;
-        flex-wrap: wrap;
-    ">
+    raw = f"""
+    <div style="display: flex; align-items: center; justify-content: space-between; background: #0f141d; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 8px; padding: 8px 16px; margin-bottom: 18px; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: #9ca3af; gap: 12px; flex-wrap: wrap;">
         <div style="display: flex; align-items: center; gap: 8px;">
             <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;"></span>
             <span style="color: #cbd5e1; font-weight: 600;">CANLI PIYASA</span>
@@ -474,7 +451,6 @@ def get_ticker_bar_html(
             <span style="color: #64748b;">|</span>
             <span style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #60a5fa; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.68rem;">{session_name}</span>
         </div>
-        
         <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
             <div>PTF SON: <span style="color: #f8fafc; font-weight: 600;">{last_ptf:,.0f} TL</span></div>
             <div>TABAN: <span style="color: #cbd5e1;">{base_load:,.0f} TL</span></div>
@@ -486,4 +462,5 @@ def get_ticker_bar_html(
             </div>
         </div>
     </div>
-    """).strip()
+    """
+    return clean_html(raw)

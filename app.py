@@ -1,6 +1,6 @@
 """
 EPİAŞ GÖP PTF Tahmin & Trading Terminali
-Ana Streamlit uygulaması — kurumsal enerji masası terminali.
+Ana Streamlit uygulaması — kurumsal enerji masası terminali (v1.1.0).
 """
 
 import sys
@@ -17,12 +17,13 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-from src.ui.styles import get_premium_css, get_header_html, get_section_header_html
+from src.ui.styles import get_premium_css, get_header_html, get_section_header_html, render_html
 from src.ui.components import (
     render_sidebar, render_kpi_cards, render_model_info,
     render_risk_indicator, render_trading_summary,
     render_navbar, render_documentation_page, render_home_page,
-    render_market_ticker_bar,
+    render_market_ticker_bar, render_session_schedule_table,
+    render_24h_schedule_table, render_imbalance_calculator,
 )
 from src.ui.charts import (
     create_ptf_forecast_chart, create_error_distribution_chart,
@@ -136,7 +137,7 @@ def get_cached_model_suite(data_len: int):
 # ─── Ana Uygulama ───
 def main():
     # Terminal Üst Başlığı
-    st.markdown(get_header_html(), unsafe_allow_html=True)
+    render_html(get_header_html())
     
     # Veri yükle
     try:
@@ -184,12 +185,12 @@ def main():
         
     active_date = st.session_state["active_date"]
     day_mask = test_df["datetime"].dt.date == active_date
-    day_data = test_df[day_mask]
+    day_data = test_df[day_mask].copy()
     
     if len(day_data) == 0:
         active_date = max_test_date
         st.session_state["active_date"] = active_date
-        day_data = test_df[test_df["datetime"].dt.date == active_date]
+        day_data = test_df[test_df["datetime"].dt.date == active_date].copy()
         
     forecast_df = day_data[["datetime", "predicted_ptf", "lower_bound", "upper_bound"]].copy()
     forecast_summary = generate_forecast_summary(forecast_df)
@@ -219,19 +220,21 @@ def main():
     # ══════════════════════════════════════════════════════════
     if current_page == "[01] GENEL BAKIŞ & SEANS ÖZETİ":
         render_home_page(forecast_summary, model_metrics, trading_metrics)
+        render_html(get_section_header_html("EPİAŞ Gün Öncesi Piyasası Seans Takvimi", "Organize toptan elektrik piyasası günlük işlem döngüsü"))
+        render_session_schedule_table()
 
     # ══════════════════════════════════════════════════════════
     # MODÜL 2: [02] 24S PTF FİYAT TAHMİNİ
     # ══════════════════════════════════════════════════════════
     elif current_page == "[02] 24S PTF FİYAT TAHMİNİ":
         render_kpi_cards(forecast_summary, day_metrics)
-        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+        render_html("<div style='height:8px;'></div>")
         render_model_info(params["model_type"], model_metrics)
         
-        st.markdown(get_section_header_html(
+        render_html(get_section_header_html(
             "PTF Fiyat Projeksiyonu & Geçmiş Analizi",
             f"İncelenen Gün: {active_date.strftime('%d %B %Y')} — Gerçekleşen vs Model Tahmini"
-        ), unsafe_allow_html=True)
+        ))
         
         # Tarih & Aralık Gezinme Çubuğu
         c_nav_prev, c_nav_date, c_nav_next, c_nav_range = st.columns([1.2, 2.2, 1.2, 2.4])
@@ -308,10 +311,14 @@ def main():
             }
         )
         
+        # 24 Saatlik Detaylı Blok & Fiyat Tablosu
+        with st.expander("24 Saatlik Detaylı Fiyat, Tahmin ve Blok Tablosu", expanded=True):
+            render_24h_schedule_table(day_data)
+        
         # Hata ve risk analizi
         col_left, col_right = st.columns([1.1, 0.9])
         with col_left:
-            st.markdown(get_section_header_html("Tahmin Hata Analizi"), unsafe_allow_html=True)
+            render_html(get_section_header_html("Tahmin Hata Analizi"))
             hours = plot_actual["datetime"].dt.hour.values
             fig_err = create_error_distribution_chart(
                 plot_actual["ptf"].values, plot_forecast["predicted_ptf"].values, hours
@@ -319,7 +326,7 @@ def main():
             st.plotly_chart(fig_err, use_container_width=True, config={"displayModeBar": False})
         
         with col_right:
-            st.markdown(get_section_header_html("Piyasa Riski & Spread"), unsafe_allow_html=True)
+            render_html(get_section_header_html("Piyasa Riski & Spread"))
             if "smf" in plot_actual.columns:
                 risk_df = calculate_spread_risk(
                     plot_actual["ptf"].values,
@@ -335,10 +342,10 @@ def main():
     # MODÜL 3: [03] MODEL KIYASLAMA & ENSEMBLE
     # ══════════════════════════════════════════════════════════
     elif current_page == "[03] MODEL KIYASLAMA & ENSEMBLE":
-        st.markdown(get_section_header_html(
+        render_html(get_section_header_html(
             "Çoklu Model Kıyaslama Laboratuvarı",
             "CatBoost vs LightGBM vs Ensemble (Hibrit) başarım ve gecikme karşılaştırması"
-        ), unsafe_allow_html=True)
+        ))
         
         # Çoklu tahmin grafiği (seçili 24 saat için)
         day_sub = test_df[test_df["datetime"].dt.date == active_date]
@@ -359,7 +366,7 @@ def main():
         st.plotly_chart(fig_multi, use_container_width=True, config={"displayModeBar": False})
         
         # Karşılaştırma tablosu
-        st.markdown(get_section_header_html("Test Seti Performans Karşılaştırma Matrisi (30 Günlük)"), unsafe_allow_html=True)
+        render_html(get_section_header_html("Test Seti Performans Karşılaştırma Matrisi (30 Günlük)"))
         
         bench_data = []
         for m_name, (m_obj, m_preds, m_metrics, m_fi) in [
@@ -380,15 +387,27 @@ def main():
             
         st.dataframe(pd.DataFrame(bench_data), use_container_width=True, hide_index=True)
         
+        # İnteraktif Ensemble Ağırlık Simülatörü
+        render_html(get_section_header_html("İnteraktif Ensemble Ağırlık Simülatörü", "CatBoost ve LightGBM model ağırlıklarını ayarlayarak yeni model karması üretin"))
+        c_w1, c_w2 = st.columns([2, 1])
+        with c_w1:
+            cb_weight = st.slider("CatBoost Model Ağırlığı (%)", min_value=0, max_value=100, value=50, step=5) / 100.0
+            lgb_weight = 1.0 - cb_weight
+            st.caption(f"Aktif Dağılım: %{int(cb_weight*100)} CatBoost + %{int(lgb_weight*100)} LightGBM")
+        with c_w2:
+            custom_blend = cb_weight * model_suite["catboost"][1] + lgb_weight * model_suite["lightgbm"][1]
+            custom_metrics = evaluate_model(test_df["ptf"].values, custom_blend)
+            st.metric("Özel Karma MAPE", f"%{custom_metrics['mape']:.2f}", delta=f"R²: {custom_metrics['r2']:.4f}")
+        
         # Öznitelik önemi ve hata dökümü
         c_fi, c_err = st.columns([1, 1])
         with c_fi:
-            st.markdown(get_section_header_html(f"Öznitelik Önemi — {selected_model_type.upper()}"), unsafe_allow_html=True)
+            render_html(get_section_header_html(f"Öznitelik Önemi — {selected_model_type.upper()}"))
             fig_fi = create_feature_importance_chart(fi_df, top_n=12)
             st.plotly_chart(fig_fi, use_container_width=True, config={"displayModeBar": False})
             
         with c_err:
-            st.markdown(get_section_header_html("Saatlik Doğruluk Dağılımı"), unsafe_allow_html=True)
+            render_html(get_section_header_html("Saatlik Doğruluk Dağılımı"))
             hourly_comp = evaluate_hourly(test_df["ptf"].values, test_predictions, test_df["datetime"].dt.hour.values)
             h_disp = hourly_comp[["hour", "mape", "rmse", "bias"]].copy()
             h_disp.columns = ["Saat", "MAPE (%)", "RMSE (TL)", "Sapma / Bias (TL)"]
@@ -401,20 +420,20 @@ def main():
     # MODÜL 4: [04] TRADING & P&L SİMÜLATÖRÜ
     # ══════════════════════════════════════════════════════════
     elif current_page == "[04] TRADING & P&L SİMÜLATÖRÜ":
-        st.markdown(get_section_header_html(
+        render_html(get_section_header_html(
             "Algoritmik Trading Masası & Stres Testi",
             "PTF fiyat arbitrajı, kümülatif P&L eğrisi ve ekstrem piyasa senaryoları"
-        ), unsafe_allow_html=True)
+        ))
         
         render_trading_summary(trading_metrics)
-        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+        render_html("<div style='height:8px;'></div>")
         
         # P&L Grafiği
         fig_pnl = create_pnl_chart(backtest_df)
         st.plotly_chart(fig_pnl, use_container_width=True, config={"displayModeBar": False})
         
         # Stres Testi Bölümü
-        st.markdown(get_section_header_html("Piyasa Stres Testi & Ekstrem Senaryo Simülatörü", "Sistem şoklarında strateji dayanıklılığı"), unsafe_allow_html=True)
+        render_html(get_section_header_html("Piyasa Stres Testi & Ekstrem Senaryo Simülatörü", "Sistem şoklarında strateji dayanıklılığı"))
         c_st1, c_st2 = st.columns([1, 2])
         with c_st1:
             scenario = st.selectbox(
@@ -429,26 +448,38 @@ def main():
             shock_pct = st.slider("Şok Büyüklüğü (%)", min_value=10, max_value=50, value=25, step=5) / 100.0
             
             shocked_df = simulate_market_shock(backtest_df, shock_type=scenario[0], shock_pct=shock_pct)
-            s_metrics = calculate_trading_metrics(shocked_df.rename(columns={"shocked_pnl": "pnl", "shocked_cumulative_pnl": "cumulative_pnl"}))
+            shock_eval_df = shocked_df.copy()
+            shock_eval_df["pnl"] = shocked_df["shocked_pnl"]
+            shock_eval_df["cumulative_pnl"] = shocked_df["shocked_cumulative_pnl"]
+            s_metrics = calculate_trading_metrics(shock_eval_df)
             
-            st.markdown(f"""
+            pnl_col = '#22c55e' if s_metrics['total_pnl'] >= 0 else '#ef4444'
+            render_html(f"""
             <div style="background: rgba(20,26,38,0.7); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px; margin-top: 10px; font-family:'JetBrains Mono',monospace; font-size:0.75rem;">
                 <div style="color:#64748b; margin-bottom:4px;">STRES ALTINDA SONUÇ:</div>
-                <div style="color:{'#22c55e' if s_metrics['total_pnl']>=0 else '#ef4444'}; font-size:1.1rem; font-weight:700;">{s_metrics['total_pnl']:,.0f} TL</div>
+                <div style="color:{pnl_col}; font-size:1.1rem; font-weight:700;">{s_metrics['total_pnl']:,.0f} TL</div>
                 <div style="color:#94a3b8; margin-top:4px;">Maks. Drawdown: {s_metrics['max_drawdown_pct']:.1f}%</div>
                 <div style="color:#94a3b8;">Başarı Oranı: %{s_metrics['win_rate']:.1f}</div>
             </div>
-            """, unsafe_allow_html=True)
+            """)
             
         with c_st2:
             fig_stress = create_stress_test_chart(shocked_df, shock_name=scenario[1], height=340)
             st.plotly_chart(fig_stress, use_container_width=True, config={"displayModeBar": False})
             
         # İşlem Defteri (Trade Log)
-        st.markdown(get_section_header_html("İşlem Defteri (Trade Execution Log)"), unsafe_allow_html=True)
+        render_html(get_section_header_html("İşlem Defteri (Trade Execution Log)"))
+        log_filter = st.radio("İşlem Filtresi", ["Tüm İşlemler", "Kazanan İşlemler", "Kaybeden İşlemler"], horizontal=True)
+        
         trades_only = backtest_df[backtest_df["signal"] != 0][
             ["datetime", "actual_ptf", "predicted_ptf", "signal", "position_mwh", "pnl", "cumulative_pnl"]
         ].copy()
+        
+        if log_filter == "Kazanan İşlemler":
+            trades_only = trades_only[trades_only["pnl"] > 0]
+        elif log_filter == "Kaybeden İşlemler":
+            trades_only = trades_only[trades_only["pnl"] < 0]
+            
         trades_only["signal"] = trades_only["signal"].map({1: "AL", -1: "SAT"})
         trades_only = trades_only.rename(columns={
             "datetime": "Tarih / Saat",
@@ -465,10 +496,10 @@ def main():
     # MODÜL 5: [05] SMF SPREAD & RİSK RADARI
     # ══════════════════════════════════════════════════════════
     elif current_page == "[05] SMF SPREAD & RİSK RADARI":
-        st.markdown(get_section_header_html(
+        render_html(get_section_header_html(
             "Piyasa Derinliği & Dengesizlik Risk Radarı",
             "PTF vs SMF spread analizi ve sistem marjinal dengesizlik riskleri"
-        ), unsafe_allow_html=True)
+        ))
         
         if "smf" in test_df.columns:
             all_risk_df = calculate_spread_risk(
@@ -488,9 +519,14 @@ def main():
             with col_r4:
                 st.metric("Yüksek Risk Oranı", f"%{risk_summary['pct_high_risk']:.1f}")
             
-            st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+            render_html("<div style='height:8px;'></div>")
             fig_spread_all = create_spread_risk_chart(all_risk_df)
             st.plotly_chart(fig_spread_all, use_container_width=True, config={"displayModeBar": False})
+            
+            # İnteraktif Dengesizlik Maliyeti Hesaplayıcı
+            cur_ptf = float(day_data["ptf"].iloc[-1]) if len(day_data) > 0 else 2850.0
+            cur_smf = float(day_data["smf"].iloc[-1]) if len(day_data) > 0 else 2710.0
+            render_imbalance_calculator(cur_ptf, cur_smf)
         else:
             st.info("SMF verisi bulunamadı.")
 
@@ -498,19 +534,33 @@ def main():
     # MODÜL 6: [06] SAATLİK PROFİL & ISI HARİTASI
     # ══════════════════════════════════════════════════════════
     elif current_page == "[06] SAATLİK PROFİL & ISI HARİTASI":
-        st.markdown(get_section_header_html(
+        render_html(get_section_header_html(
             "Piyasa Fiyat Profili & Saatlik Yoğunluk Isı Haritası",
             "Haftanın günleri ve günün saatleri bazında elektrik fiyat formasyonu"
-        ), unsafe_allow_html=True)
+        ))
         
         # Isı haritası
         fig_heat = create_hourly_heatmap(test_df, height=380)
         st.plotly_chart(fig_heat, use_container_width=True, config={"displayModeBar": False})
         
         # Kontrat bazlı taban / puant dinamiği
-        st.markdown(get_section_header_html("Puant ve Taban Yük Kontrat Trendleri (00-24 vs 08-20 vs 17-21)"), unsafe_allow_html=True)
+        render_html(get_section_header_html("Puant ve Taban Yük Kontrat Trendleri (00-24 vs 08-20 vs 17-21)"))
         fig_bp = create_base_peak_chart(test_df, height=360)
         st.plotly_chart(fig_bp, use_container_width=True, config={"displayModeBar": False})
+        
+        # Saatlik istatistik özeti
+        c_st_a, c_st_b, c_st_c = st.columns(3)
+        peak_avg = test_df[(test_df["datetime"].dt.hour >= 17) & (test_df["datetime"].dt.hour <= 21)]["ptf"].mean()
+        night_avg = test_df[(test_df["datetime"].dt.hour >= 0) & (test_df["datetime"].dt.hour <= 6)]["ptf"].mean()
+        weekday_avg = test_df[test_df["datetime"].dt.dayofweek < 5]["ptf"].mean()
+        weekend_avg = test_df[test_df["datetime"].dt.dayofweek >= 5]["ptf"].mean()
+        
+        with c_st_a:
+            st.metric("Puant (17-21) Ort. Fiyat", f"{peak_avg:,.0f} TL", delta=f"{peak_avg - night_avg:+,.0f} TL Gece Farkı")
+        with c_st_b:
+            st.metric("Gece (00-06) Ort. Fiyat", f"{night_avg:,.0f} TL")
+        with c_st_c:
+            st.metric("Hafta İçi vs Hafta Sonu", f"{weekday_avg:,.0f} TL", delta=f"{weekday_avg - weekend_avg:+,.0f} TL Hafta Sonu Farkı")
 
     # ══════════════════════════════════════════════════════════
     # MODÜL 7: [07] SİSTEM REHBERİ & SRS
