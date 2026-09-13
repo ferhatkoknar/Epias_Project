@@ -41,3 +41,7 @@ venv/
 
 # ML Logs
 catboost_info/
+
+# Local Agent Memory
+AGENTS.md
+GEMINI.md
