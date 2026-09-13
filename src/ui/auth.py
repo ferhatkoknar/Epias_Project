@@ -1,9 +1,11 @@
 """
 EPİAŞ GÖP PTF Tahmin & Trading Terminali — Kimlik Doğrulama & Erişim Ağ Geçidi
-Sıfır emoji politikası ve kurumsal koyu terminal tasarımına uygun oturum yönetimi.
+Sıfır emoji politikası ve kurumsal sinematik enerji terminali arka planı.
 """
 
 import os
+import base64
+from pathlib import Path
 from datetime import datetime
 import streamlit as st
 
@@ -37,55 +39,79 @@ def get_configured_access_keys() -> list[str]:
     return [k.strip() for k in valid_keys if k.strip()]
 
 
+def _get_login_page_css() -> str:
+    """Giriş sayfası için sinematik enerji şebekesi arka planı ve cam efekti (glassmorphism) CSS'i üretir."""
+    bg_path = Path(__file__).resolve().parent.parent.parent / "assets" / "login_bg.jpg"
+    bg_css_rule = ""
+    if bg_path.exists():
+        try:
+            with open(bg_path, "rb") as f:
+                b64_data = base64.b64encode(f.read()).decode("utf-8")
+            bg_css_rule = f"""
+            .stApp {{
+                background-image: linear-gradient(rgba(7, 11, 20, 0.72), rgba(7, 11, 20, 0.86)), url("data:image/jpeg;base64,{b64_data}") !important;
+                background-size: cover !important;
+                background-position: center center !important;
+                background-repeat: no-repeat !important;
+                background-attachment: fixed !important;
+            }}
+            """
+        except Exception:
+            pass
+
+    return f"""
+    <style>
+        [data-testid="stSidebar"] {{
+            display: none !important;
+        }}
+        {bg_css_rule}
+        .login-glass-card {{
+            background: rgba(14, 20, 34, 0.85) !important;
+            backdrop-filter: blur(20px) !important;
+            -webkit-backdrop-filter: blur(20px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            border-radius: 14px !important;
+            padding: 36px 40px 30px 40px !important;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.75), 0 0 40px rgba(37, 99, 235, 0.1) !important;
+            text-align: center !important;
+            font-family: 'Inter', -apple-system, sans-serif !important;
+        }}
+    </style>
+    """
+
+
 def require_terminal_auth() -> bool:
     """
     Kullanıcının terminale erişim yetkisi olup olmadığını denetler.
-    Yetkisiz ise şık bir kurumsal giriş ekranı gösterir ve st.stop() çağırır.
+    Yetkisiz ise sinematik arka planlı kurumsal giriş ekranı gösterir ve st.stop() çağırır.
     Yetkili ise True döndürerek uygulamanın çalışmasını sürdürür.
     """
     if st.session_state.get("authenticated", False):
         return True
 
-    # Giriş ekranında yan paneli gizle
-    st.markdown(
-        """
-        <style>
-            [data-testid="stSidebar"] {
-                display: none !important;
-            }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    # Giriş ekranı özel CSS ve arka planını enjekte et
+    st.markdown(_get_login_page_css(), unsafe_allow_html=True)
 
     valid_keys = get_configured_access_keys()
 
     col_l, col_center, col_r = st.columns([1, 1.8, 1])
     with col_center:
-        st.markdown("<div style='height: 48px;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height: 42px;'></div>", unsafe_allow_html=True)
         
         st.markdown(
             """
-            <div style="
-                background: linear-gradient(180deg, #141a26 0%, #0c1017 100%);
-                border: 1px solid rgba(255,255,255,0.12);
-                border-radius: 12px;
-                padding: 32px 36px 28px 36px;
-                box-shadow: 0 20px 50px rgba(0,0,0,0.6);
-                text-align: center;
-                font-family: 'Inter', -apple-system, sans-serif;
-            ">
-                <div style="font-size: 0.72rem; color: #60a5fa; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 6px;">
-                    [GÜVENLİK PROTOKOLÜ: DÜZEY-2]
+            <div class="login-glass-card">
+                <div style="font-size: 0.75rem; color: #38bdf8; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 8px;">
+                    EPİAŞ GÜN ÖNCESİ PİYASASI (GÖP)
                 </div>
-                <div style="font-size: 1.45rem; font-weight: 800; color: #f8fafc; letter-spacing: -0.02em; margin-bottom: 6px;">
-                    EPİAŞ GÖP TAHMİN & TRADING TERMİNALİ
+                <div style="font-size: 1.55rem; font-weight: 800; color: #f8fafc; letter-spacing: -0.02em; margin-bottom: 6px;">
+                    PTF TAHMİN & TRADING TERMİNALİ
                 </div>
-                <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 24px;">
+                <div style="font-size: 0.82rem; color: #94a3b8; margin-bottom: 22px;">
                     Kurumsal Enerji Masası Karar Destek Arayüzü
                 </div>
-                <div style="border-top: 1px solid rgba(255,255,255,0.06); margin-bottom: 24px;"></div>
-                <div style="text-align: left; font-size: 0.75rem; color: #cbd5e1; font-family: 'JetBrains Mono', monospace; margin-bottom: 8px;">
+                <div style="border-top: 1px solid rgba(255,255,255,0.08); margin-bottom: 22px;"></div>
+                <div style="text-align: left; font-size: 0.74rem; color: #cbd5e1; font-family: 'JetBrains Mono', monospace; margin-bottom: 8px;">
                     TERMİNAL ERİŞİM ANAHTARI (ACCESS KEY):
                 </div>
             </div>
@@ -121,8 +147,10 @@ def require_terminal_auth() -> bool:
             """
             <div style="
                 margin-top: 16px;
-                background: rgba(15, 23, 42, 0.6);
-                border: 1px dashed rgba(255,255,255,0.1);
+                background: rgba(15, 23, 42, 0.75);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                border: 1px dashed rgba(255,255,255,0.12);
                 border-radius: 8px;
                 padding: 12px 16px;
                 font-family: 'JetBrains Mono', monospace;
