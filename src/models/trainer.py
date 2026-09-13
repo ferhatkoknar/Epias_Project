@@ -16,6 +16,26 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 MODELS_DIR = PROJECT_ROOT / "models"
 
 
+class EnsembleModel:
+    """CatBoost ve LightGBM modellerini agirlikli birlestiren Topluluk (Ensemble) Modeli."""
+    def __init__(self, catboost_model, lightgbm_model, weights=(0.5, 0.5)):
+        self.catboost = catboost_model
+        self.lightgbm = lightgbm_model
+        self.weights = weights
+        
+    def predict(self, X):
+        pred_cb = np.array(self.catboost.predict(X))
+        pred_lgb = np.array(self.lightgbm.predict(X))
+        return self.weights[0] * pred_cb + self.weights[1] * pred_lgb
+        
+    def get_feature_importance(self):
+        fi_cb = np.array(self.catboost.get_feature_importance(), dtype=float)
+        fi_cb = fi_cb / (np.sum(fi_cb) + 1e-9)
+        fi_lgb = np.array(self.lightgbm.feature_importances_, dtype=float)
+        fi_lgb = fi_lgb / (np.sum(fi_lgb) + 1e-9)
+        return self.weights[0] * fi_cb + self.weights[1] * fi_lgb
+
+
 def train_model(
     X_train: pd.DataFrame,
     y_train: pd.Series,
@@ -32,7 +52,7 @@ def train_model(
         y_train: Eğitim hedef değişkeni
         X_val: Validasyon öznitelikleri (opsiyonel)
         y_val: Validasyon hedef değişkeni (opsiyonel)
-        model_type: 'catboost' veya 'lightgbm'
+        model_type: 'catboost', 'lightgbm' veya 'ensemble'
         params: Model hiperparametreleri
     
     Returns:
@@ -44,6 +64,10 @@ def train_model(
         model = _train_catboost(X_train, y_train, X_val, y_val, params)
     elif model_type == "lightgbm":
         model = _train_lightgbm(X_train, y_train, X_val, y_val, params)
+    elif model_type == "ensemble":
+        cb = _train_catboost(X_train, y_train, X_val, y_val, params)
+        lgb = _train_lightgbm(X_train, y_train, X_val, y_val, params)
+        model = EnsembleModel(cb, lgb, weights=(0.5, 0.5))
     else:
         raise ValueError(f"Bilinmeyen model tipi: {model_type}")
     
@@ -150,6 +174,11 @@ def get_feature_importance(model: object, feature_names: list[str], model_type: 
         importances = model.get_feature_importance()
     elif model_type == "lightgbm":
         importances = model.feature_importances_
+    elif model_type == "ensemble" or hasattr(model, "get_feature_importance"):
+        try:
+            importances = model.get_feature_importance()
+        except Exception:
+            importances = np.ones(len(feature_names)) / len(feature_names)
     else:
         return pd.DataFrame()
     

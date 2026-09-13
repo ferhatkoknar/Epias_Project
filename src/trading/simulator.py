@@ -148,3 +148,52 @@ def calculate_trading_metrics(backtest_df: pd.DataFrame) -> dict:
     }
     
     return metrics
+
+
+def simulate_market_shock(
+    backtest_df: pd.DataFrame,
+    shock_type: str = "gas_spike",
+    shock_pct: float = 0.25,
+) -> pd.DataFrame:
+    """
+    Piyasa stres testi: Ani fiyat soklarinda strateji saglamligini olcer.
+    
+    Args:
+        backtest_df: Orijinal backtest sonuclari
+        shock_type: 'gas_spike' (ani gaz kesintisi/puant artisi), 
+                    'renewable_surge' (ani yenilenebilir arzi/taban baskisi), 
+                    'volatility_shock' (oynaklik soku)
+        shock_pct: Sok buyuklugu (orn. 0.25 = %25)
+    """
+    df = backtest_df.copy()
+    shocked_ptf = df["actual_ptf"].copy().values
+    
+    dts = pd.to_datetime(df["datetime"])
+    hours = dts.dt.hour.values
+    
+    if shock_type == "gas_spike":
+        mask = (hours >= 8) & (hours <= 20)
+        shocked_ptf[mask] = shocked_ptf[mask] * (1.0 + shock_pct)
+    elif shock_type == "renewable_surge":
+        shocked_ptf = np.maximum(0, shocked_ptf * (1.0 - shock_pct))
+    elif shock_type == "volatility_shock":
+        rng = np.random.default_rng(42)
+        noise = rng.normal(0, shock_pct, len(shocked_ptf))
+        shocked_ptf = np.maximum(0, shocked_ptf * (1.0 + noise))
+        
+    df["shocked_actual_ptf"] = shocked_ptf
+    shocked_pnl = np.zeros(len(df))
+    signals = df["signal"].values
+    positions = df["position_mwh"].values
+    
+    for i in range(1, len(df)):
+        sig = signals[i]
+        pos = abs(positions[i])
+        if sig == 1:
+            shocked_pnl[i] = (shocked_ptf[i] - shocked_ptf[i - 1]) * pos
+        elif sig == -1:
+            shocked_pnl[i] = (shocked_ptf[i - 1] - shocked_ptf[i]) * pos
+            
+    df["shocked_pnl"] = shocked_pnl
+    df["shocked_cumulative_pnl"] = np.cumsum(shocked_pnl)
+    return df

@@ -53,7 +53,7 @@ def predict_24h(model, feature_df: pd.DataFrame, feature_columns: list[str]) -> 
     logger.info(f"24 saatlik tahmin üretildi: {elapsed_ms:.1f}ms (hedef: <500ms)")
     
     if elapsed_ms > 500:
-        logger.warning(f"⚠️ Inference süresi hedefi aşıldı: {elapsed_ms:.1f}ms > 500ms")
+        logger.warning(f"[WARNING] Inference suresi hedefi asildi: {elapsed_ms:.1f}ms > 500ms")
     
     return result
 

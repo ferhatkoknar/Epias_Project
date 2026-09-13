@@ -94,8 +94,17 @@ TRADING_CONFIG = {
 # ─────────────────────────── UI Konfigürasyonu ───────────────────────────
 UI_CONFIG = {
     "page_title": "EPİAŞ GÖP PTF Tahmin & Trading Terminali",
-    "page_icon": "⚡",
+    "page_icon": None,
     "layout": "wide",
+    
+    # Seans saatleri
+    "sessions": {
+        "gop_bid_window": "10:30 - 12:30",
+        "gop_announcement": "14:00",
+        "base_hours": (0, 24),
+        "peak_hours": (8, 20),
+        "super_peak_hours": (17, 21),
+    },
     
     # Renk paleti
     "colors": {

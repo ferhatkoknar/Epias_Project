@@ -93,14 +93,14 @@ def _check_acceptance_criteria(metrics: dict) -> None:
     da = metrics["directional_accuracy"]
     
     if mape < 12.0:
-        logger.info(f"✅ MAPE = {mape:.2f}% (hedef: <12%) — BAŞARILI")
+        logger.info(f"[OK] MAPE = {mape:.2f}% (hedef: <12%) — BASARILI")
     else:
-        logger.warning(f"❌ MAPE = {mape:.2f}% (hedef: <12%) — BAŞARISIZ")
+        logger.warning(f"[FAIL] MAPE = {mape:.2f}% (hedef: <12%) — BASARISIZ")
     
     if da > 70.0:
-        logger.info(f"✅ Yön Doğruluğu = {da:.1f}% (hedef: >70%) — BAŞARILI")
+        logger.info(f"[OK] Yon Dogrulugu = {da:.1f}% (hedef: >70%) — BASARILI")
     else:
-        logger.warning(f"❌ Yön Doğruluğu = {da:.1f}% (hedef: >70%) — BAŞARISIZ")
+        logger.warning(f"[FAIL] Yon Dogrulugu = {da:.1f}% (hedef: >70%) — BASARISIZ")
 
 
 def evaluate_hourly(y_true: np.ndarray, y_pred: np.ndarray, hours: np.ndarray) -> pd.DataFrame:

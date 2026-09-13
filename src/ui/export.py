@@ -67,11 +67,11 @@ def generate_technical_report(
 
 | Metrik | Değer | Hedef | Durum |
 |--------|-------|-------|-------|
-| MAPE | %{metrics.get('mape', 0):.2f} | <%12 | {'✅ Başarılı' if metrics.get('mape', 100) < 12 else '❌ Başarısız'} |
+| MAPE | %{metrics.get('mape', 0):.2f} | <%12 | {'[KABUL] Basarili' if metrics.get('mape', 100) < 12 else '[UYARI] Basarisiz'} |
 | RMSE | {metrics.get('rmse', 0):,.1f} TL | — | — |
 | MAE | {metrics.get('mae', 0):,.1f} TL | — | — |
 | R² | {metrics.get('r2', 0):.4f} | — | — |
-| Yön Doğruluğu | %{metrics.get('directional_accuracy', 0):.1f} | >%70 | {'✅ Başarılı' if metrics.get('directional_accuracy', 0) > 70 else '❌ Başarısız'} |
+| Yön Doğruluğu | %{metrics.get('directional_accuracy', 0):.1f} | >%70 | {'[KABUL] Basarili' if metrics.get('directional_accuracy', 0) > 70 else '[UYARI] Basarisiz'} |
 | Maksimum Hata | {metrics.get('max_error', 0):,.1f} TL | — | — |
 
 """

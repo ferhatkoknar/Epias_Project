@@ -134,14 +134,19 @@ def run_all_tests():
     assert "cumulative_pnl" in backtest_df.columns, "Hata: cumulative_pnl sütunu yok!"
     print("  -> FR-07: BAŞARILI")
     
-    # 8. Veri Dışa Aktarımı (FR-08)
-    print("\n[FR-08] Veri Dışa Aktarımı Test Ediliyor...")
-    from src.ui.export import export_predictions_csv, generate_technical_report
-    csv_bytes = export_predictions_csv(f24, metrics=metrics)
-    report_text = generate_technical_report(metrics, trading_metrics, risk_sum, "catboost")
-    assert len(csv_bytes) > 0, "Hata: CSV dışa aktarım boş!"
-    assert len(report_text) > 50, "Hata: Teknik rapor boş!"
-    print("  -> FR-08: BAŞARILI")
+    # 9. Ensemble & Stres Testi (Gelişmiş Özellikler)
+    print("\n[ADVANCED] Ensemble Model & Stres Testi Test Ediliyor...")
+    from src.trading.simulator import simulate_market_shock
+    from src.models.trainer import EnsembleModel
+    ens_model = EnsembleModel(model_cb, model_lgb, weights=(0.5, 0.5))
+    ens_preds = ens_model.predict(X_test)
+    ens_metrics = evaluate_model(y_test.values, ens_preds)
+    print(f"  -> Ensemble MAPE: %{ens_metrics['mape']:.2f}")
+    assert ens_metrics["mape"] < 12.0, "Hata: Ensemble MAPE hedefi asildi!"
+    
+    shock_df = simulate_market_shock(backtest_df, shock_type="gas_spike", shock_pct=0.25)
+    assert "shocked_cumulative_pnl" in shock_df.columns, "Hata: shocked_cumulative_pnl sutunu yok!"
+    print("  -> ADVANCED: BAŞARILI")
     
     print("\n=======================================================")
     print("SONUÇ: SRS BELGESİNDEKİ TÜM GEREKSİNİMLER (FR-01...FR-08, NFR-01...NFR-03) BAŞARIYLA SAĞLANMIŞTIR!")

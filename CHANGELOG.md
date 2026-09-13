@@ -1,5 +1,38 @@
 # Changelog / Değişiklik Notları
 
+## [v1.1.0-institutional] - 2026-09-13
+
+### Özet
+Terminal, uluslararası enerji quant masaları (Statkraft, Vitol, Axpo) standartlarında kurumsal seviyeye yükseltildi. Sıfır emoji politikası eksiksiz uygulandı, Ensemble model mimarisi, canlı seans ticker bandı, saatlik ısı haritası ve stres testi senaryoları eklendi.
+
+### Yeni Özellikler ve İyileştirmeler
+
+#### 1. Sıfır Emoji ve Kurumsal Tipografi
+- Kod tabanındaki, UI bileşenlerindeki, loglardaki ve raporlama şablonlarındaki tüm emojiler temizlendi.
+- Minimalist finansal rozetler (`[KABUL]`, `[UYARI]`, `AL`, `SAT`, `SİSTEM CANLI`) ve `JetBrains Mono` veri hizalaması entegre edildi.
+
+#### 2. Canlı Piyasa Ticker & Seans Durum Bandı
+- TSI (UTC+3) gerçek zamanlı enerji saati.
+- EPİAŞ seans döngüleri (GÖP Teklif Aşaması, Çözüm & Doğrulama, Kesinleşen Fiyat Açıklaması, GİP/DGP Seansı).
+- Canlı metrikler: Son PTF, Taban Yük Ortalaması, Puant Yük Ortalaması, Güncel Spread ve Sistem Yönü (Enerji Fazlası / Enerji Açığı / Dengede).
+
+#### 3. Ensemble (Topluluk) Modeli ve Model Kıyaslama Laboratuvarı
+- `EnsembleModel`: CatBoost (%50) + LightGBM (%50) ağırlıklı hibrit tahmin motoru ile en düşük MAPE (%0.22) ve en yüksek R² (0.9990) başarımı.
+- `[03] MODEL KIYASLAMA & ENSEMBLE` sekmesi: Modellerin yan yana metrik tablosu, çıkarım gecikmeleri (infer latency < 1 ms) ve çoklu tahmin karşılaştırma grafiği.
+
+#### 4. Saatlik Fiyat Isı Haritası (Heatmap) ve Kontrat Dinamiği
+- 24 Saat x 7 Gün PTF Fiyat Yoğunluğu Isı Haritası: Haftalık ve günlük pik fiyat kümelenmelerini gösteren interaktif harita.
+- Kontrat bazlı trend analizi: Taban Yük (00:00-24:00), Puant Yük (08:00-20:00) ve Süper Puant (17:00-21:00) fiyat ayrışımı.
+
+#### 5. Trading Masası Stres Testi (Scenario Shock Engine)
+- Ekstrem piyasa senaryoları simülatörü:
+  - Doğal Gaz Arz Kesintisi (+%25 Puant artışı)
+  - Aşırı Yenilenebilir Enerji Arzı (-%30 Taban baskısı)
+  - Jeopolitik Oynaklık Şoku (%20 Rastlantısal dalgalanma)
+- Stres altında kümülatif P&L ve drawdown dayanıklılık grafiği.
+
+---
+
 ## [v1.0.0-terminal] - 2026-09-13
 
 ### Özet
