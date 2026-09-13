@@ -1,5 +1,34 @@
 # Changelog / Değişiklik Notları
 
+## [v1.2.0-universal-reports] - 2026-09-14
+
+### Özet
+Teknik analiz raporları ve veri aktarım mimarisi baştan aşağı yenilendi. Kullanıcıların harici araçlara gerek kalmadan çift tıklamayla açabileceği evrensel formatlar (Yazdırılabilir Standart HTML Yönetici Raporu, Microsoft Word DOCX, Çok Sekmeli Excel XLSX ve UTF-8 BOM CSV) entegre edildi. Tüm indirme butonları doğrudan sol paneldeki `Dışa Aktar & Rapor İndir` merkezine taşındı.
+
+### İyileştirmeler ve Düzeltmeler
+
+#### 1. Evrensel Teknik Rapor Formatları (HTML & Word DOCX)
+- Önceden indirilen ve Windows varsayılanında açılmayan `.md` (Markdown) formatı yerine, çift tıklamayla doğrudan açılan **HTML Yönetici Raporu** ve **Microsoft Word (.docx)** formatları getirildi.
+- **HTML Raporu:** Bloomberg/Refinitiv koyu terminal temasında, KPI kartları, model doğrulama matrisi, 24 saatlik teklif programı ve "Yazdır / PDF Olarak Kaydet" butonuna sahip, CSS stilleri gömülü bağımsız web sayfasıdır.
+- **Word (DOCX) Raporu:** `python-docx` ile oluşturulan, kurumsal başlıklı, biçimlendirilmiş tablolu ve renkli durum rozetli resmi teknik rapor belgesidir.
+
+#### 2. Çok Sekmeli Kurumsal Excel (XLSX) Desteği
+- `openpyxl` motoru ile çok sekmeli çalışma kitabı:
+  - `24s_Fiyat_Tahminleri`: 24 saatlik fiyat, tahmin, sapma, hata yüzdesi ve güven aralıkları.
+  - `Model_Performansi`: MAPE, Yön Doğruluğu, RMSE, MAE, R², Çıkarım süresi ve kabul durumları.
+  - `Trading_Performansi`: Toplam P&L, Win Rate, Sharpe, Max Drawdown, Profit Factor.
+  - `Islem_Defteri`: Saatlik AL/SAT sinyalleri, gerçekleşen işlem hacimleri ve kümülatif P&L.
+- Excel saat dilimi (timezone-aware) uyumsuzluk hatası string formatlamasıyla tamamen giderildi.
+
+#### 3. Standartlaştırılmış CSV Formatı
+- Excel ve Python tarafından doğrudan hatasız açılabilmesi için UTF-8 BOM (`utf-8-sig`) kodlaması eklendi.
+- CSV ayrıştırıcılarını bozan başlık açıklamaları kaldırıldı, standartlaştırılmış sütun başlıkları (`Tarih, Saat, Piyasa_Bloku, Tahmin_PTF_TL, Gerceklesen_PTF_TL, Sapma_TL, Hata_Yuzde, Guven_Alt_TL, Guven_Ust_TL, Gerceklesen_SMF_TL, Spread_PTF_SMF_TL`) tanımlandı.
+
+#### 4. Sol Panel 1-Tıkla İndirme Merkezi
+- Sayfanın en altına kaydırma zorunluluğu kaldıran ve doğrudan sol panelde iki düzenli açılır menü (`Teknik Analiz Raporu İndir` ve `Tahmin Verilerini İndir`) içeren 1-tıkla anında indirme yapısı kuruldu.
+
+---
+
 ## [v1.1.0-institutional] - 2026-09-13
 
 ### Özet

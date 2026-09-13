@@ -79,20 +79,6 @@ def render_sidebar(min_date=None, max_date=None, default_date=None) -> dict:
             options=["momentum", "mean_reversion"],
             format_func=lambda x: "Momentum" if x == "momentum" else "Mean Reversion",
         )
-        
-        st.markdown("---")
-        st.markdown("##### Dışa Aktar")
-        
-        export_csv = st.button("Tahminleri CSV İndir", use_container_width=True)
-        export_report = st.button("Teknik Rapor Al", use_container_width=True)
-        
-        st.markdown("---")
-        render_html(
-            '<div style="text-align:center; font-size:0.62rem; color:#4b5563; '
-            'font-family: JetBrains Mono, monospace; letter-spacing:0.04em;">'
-            'EPİAŞ GÖP Terminali v1.0<br>Staj Projesi — 2026'
-            '</div>'
-        )
     
     return {
         "target_date": target_date,
@@ -101,9 +87,99 @@ def render_sidebar(min_date=None, max_date=None, default_date=None) -> dict:
         "position_mwh": position_mwh,
         "threshold_tl": threshold,
         "strategy": strategy,
-        "export_csv": export_csv,
-        "export_report": export_report,
     }
+
+
+def render_sidebar_export_section(
+    day_data: pd.DataFrame,
+    model_metrics: dict,
+    trading_metrics: dict,
+    forecast_summary: dict,
+    model_type: str,
+    target_date_str: str,
+    backtest_df: pd.DataFrame = None,
+):
+    """
+    Sol panel içinde doğrudan çalışan 1-tıkla indirme ve raporlama merkezi:
+    - HTML Yönetici Raporu (Tarayıcıda anında açılır, yazdırılabilir, PDF kaydedilebilir)
+    - Word (DOCX) Raporu (Microsoft Word uyumlu)
+    - Excel (XLSX) Çalışma Kitabı (Çok sekmeli tablo)
+    - Standart CSV (BOM UTF-8, Türkçe Excel uyumlu)
+    """
+    from src.ui.export import (
+        export_predictions_csv,
+        export_predictions_excel,
+        generate_technical_report_html,
+        generate_technical_report_docx,
+    )
+    
+    with st.sidebar:
+        st.markdown("---")
+        st.markdown("##### Dışa Aktar & Rapor İndir")
+        
+        # Byte yüklerini hazırla
+        csv_bytes = export_predictions_csv(day_data, metrics=model_metrics)
+        xlsx_bytes = export_predictions_excel(day_data, model_metrics=model_metrics, trading_metrics=trading_metrics, backtest_df=backtest_df)
+        html_report = generate_technical_report_html(
+            metrics=model_metrics,
+            trading_metrics=trading_metrics,
+            summary=forecast_summary,
+            day_df=day_data,
+            model_type=model_type,
+            target_date_str=target_date_str,
+        )
+        docx_bytes = generate_technical_report_docx(
+            metrics=model_metrics,
+            trading_metrics=trading_metrics,
+            summary=forecast_summary,
+            day_df=day_data,
+            model_type=model_type,
+            target_date_str=target_date_str,
+        )
+        
+        with st.expander("Teknik Analiz Raporu İndir", expanded=True):
+            st.download_button(
+                label="Raporu İndir (HTML / Web & PDF)",
+                data=html_report.encode("utf-8"),
+                file_name=f"teknik_rapor_{target_date_str}.html",
+                mime="text/html",
+                use_container_width=True,
+                help="Herhangi bir web tarayıcısında (Chrome, Edge) anında açılır. Ctrl+P ile PDF olarak kaydedilebilir.",
+            )
+            st.download_button(
+                label="Raporu İndir (Word / DOCX)",
+                data=docx_bytes,
+                file_name=f"teknik_rapor_{target_date_str}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True,
+                help="Microsoft Word ile doğrudan açılır.",
+            )
+            
+        with st.expander("Tahmin Verilerini İndir", expanded=True):
+            st.download_button(
+                label="Tahminleri İndir (Excel / XLSX)",
+                data=xlsx_bytes,
+                file_name=f"ptf_tahmin_{target_date_str}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                help="Çok sekmeli Microsoft Excel çalışma kitabı.",
+            )
+            st.download_button(
+                label="Tahminleri İndir (CSV)",
+                data=csv_bytes,
+                file_name=f"ptf_tahmin_{target_date_str}.csv",
+                mime="text/csv",
+                use_container_width=True,
+                help="Excel ve Python uyumlu, Türkçe karakter destekli UTF-8 CSV.",
+            )
+            
+        st.markdown("---")
+        render_html(
+            '<div style="text-align:center; font-size:0.62rem; color:#4b5563; '
+            'font-family: JetBrains Mono, monospace; letter-spacing:0.04em;">'
+            'EPİAŞ GÖP Terminali v1.2<br>Staj Projesi — 2026'
+            '</div>'
+        )
 
 
 def render_kpi_cards(summary: dict, model_metrics: dict = None):

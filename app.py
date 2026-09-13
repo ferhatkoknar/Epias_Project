@@ -24,6 +24,7 @@ from src.ui.components import (
     render_navbar, render_documentation_page, render_home_page,
     render_market_ticker_bar, render_session_schedule_table,
     render_24h_schedule_table, render_imbalance_calculator,
+    render_sidebar_export_section,
 )
 from src.ui.charts import (
     create_ptf_forecast_chart, create_error_distribution_chart,
@@ -208,6 +209,17 @@ def main():
         risk_coefficient=params["risk_coefficient"],
     )
     trading_metrics = calculate_trading_metrics(backtest_df)
+    
+    # ─── Sol Panel Dışa Aktarma & Rapor Merkezi (1-Tıkla İndirme) ───
+    render_sidebar_export_section(
+        day_data=day_data,
+        model_metrics=model_metrics,
+        trading_metrics=trading_metrics,
+        forecast_summary=forecast_summary,
+        model_type=params["model_type"],
+        target_date_str=str(active_date),
+        backtest_df=backtest_df,
+    )
     
     # ─── Canlı Piyasa Ticker & Seans Bantı ───
     render_market_ticker_bar(day_data, model_metrics)
@@ -567,30 +579,6 @@ def main():
     # ══════════════════════════════════════════════════════════
     elif current_page == "[07] SİSTEM REHBERİ & SRS":
         render_documentation_page()
-
-    # ─── Dışa Aktarma ───
-    if params["export_csv"]:
-        csv_data = export_predictions_csv(forecast_df, test_df, model_metrics)
-        st.download_button(
-            label="Tahmin Verilerini CSV İndir",
-            data=csv_data,
-            file_name=f"ptf_tahmin_{params['target_date']}.csv",
-            mime="text/csv",
-        )
-    
-    if params["export_report"]:
-        report = generate_technical_report(
-            model_metrics,
-            trading_metrics,
-            forecast_summary,
-            params["model_type"],
-        )
-        st.download_button(
-            label="Teknik Analiz Raporunu İndir",
-            data=report.encode("utf-8"),
-            file_name=f"teknik_rapor_{params['target_date']}.md",
-            mime="text/markdown",
-        )
 
 
 if __name__ == "__main__":

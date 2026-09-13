@@ -134,6 +134,35 @@ def run_all_tests():
     assert "cumulative_pnl" in backtest_df.columns, "Hata: cumulative_pnl sütunu yok!"
     print("  -> FR-07: BAŞARILI")
     
+    # 8. Dışa Aktarma ve Teknik Raporlama (FR-08)
+    print("\n[FR-08] Dışa Aktarma (CSV, Excel, HTML, Word) Test Ediliyor...")
+    from src.ui.export import (
+        export_predictions_csv,
+        export_predictions_excel,
+        generate_technical_report_html,
+        generate_technical_report_docx,
+    )
+    test_day = test_df.tail(24).copy()
+    test_day["predicted_ptf"] = preds[-24:]
+    
+    csv_bytes = export_predictions_csv(test_day, metrics=metrics)
+    assert len(csv_bytes) > 0, "Hata: CSV dışa aktarma boş veri üretti!"
+    assert b"Tahmin_PTF_TL" in csv_bytes, "Hata: CSV beklenen sütunları içermiyor!"
+    print(f"  -> CSV Aktarımı Başarılı ({len(csv_bytes)} bytes)")
+    
+    xlsx_bytes = export_predictions_excel(test_day, model_metrics=metrics, trading_metrics=trading_metrics)
+    assert len(xlsx_bytes) > 1000, "Hata: Excel dosyası oluşturulamadı!"
+    print(f"  -> Excel (XLSX) Aktarımı Başarılı ({len(xlsx_bytes)} bytes)")
+    
+    html_report = generate_technical_report_html(metrics, trading_metrics, day_df=test_day, model_type="catboost", target_date_str="2026-09-14")
+    assert len(html_report) > 1000 and "<html" in html_report.lower(), "Hata: HTML raporu üretilemedi!"
+    print(f"  -> HTML Yönetici Raporu Başarılı ({len(html_report)} karakter)")
+    
+    docx_bytes = generate_technical_report_docx(metrics, trading_metrics, day_df=test_day, model_type="catboost", target_date_str="2026-09-14")
+    assert len(docx_bytes) > 5000, "Hata: Word (DOCX) raporu üretilemedi!"
+    print(f"  -> Word (DOCX) Raporu Başarılı ({len(docx_bytes)} bytes)")
+    print("  -> FR-08: BAŞARILI")
+    
     # 9. Ensemble & Stres Testi (Gelişmiş Özellikler)
     print("\n[ADVANCED] Ensemble Model & Stres Testi Test Ediliyor...")
     from src.trading.simulator import simulate_market_shock
