@@ -33,6 +33,7 @@ from src.ui.charts import (
     create_multi_model_comparison_chart, create_stress_test_chart,
 )
 from src.ui.export import export_predictions_csv, generate_technical_report
+from src.ui.auth import require_terminal_auth, render_sidebar_user_badge
 from src.data.fetcher import fetch_all_market_data
 from src.data.cleaner import clean_market_data
 from src.features.time_features import create_time_features, get_feature_columns
@@ -137,6 +138,10 @@ def get_cached_model_suite(data_len: int):
 
 # ─── Ana Uygulama ───
 def main():
+    # ─── Kimlik Doğrulama & Erişim Ağ Geçidi ───
+    require_terminal_auth()
+    render_sidebar_user_badge()
+
     # Terminal Üst Başlığı
     render_html(get_header_html())
     
