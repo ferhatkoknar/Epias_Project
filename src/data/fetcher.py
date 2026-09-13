@@ -18,18 +18,21 @@ DATA_RAW = PROJECT_ROOT / "data" / "raw"
 DATA_CACHE = PROJECT_ROOT / "data" / "cache"
 
 
-def fetch_ptf_data(start_date: str, end_date: str) -> pd.DataFrame:
+def fetch_ptf_data(start_date: str = "2024-01-01", end_date: str = None) -> pd.DataFrame:
     """
     EPİAŞ API'sinden saatlik PTF verilerini çeker.
     API erişimi yoksa demo veri üretir.
     
     Args:
         start_date: Başlangıç tarihi (YYYY-MM-DD)
-        end_date: Bitiş tarihi (YYYY-MM-DD)
+        end_date: Bitiş tarihi (YYYY-MM-DD) — boş bırakılırsa yarına kadar alır
     
     Returns:
         Saatlik PTF değerleri içeren DataFrame
     """
+    if end_date is None:
+        end_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+        
     try:
         import eptr2
         # eptr2 ile gerçek veri çekme
@@ -48,16 +51,19 @@ def fetch_ptf_data(start_date: str, end_date: str) -> pd.DataFrame:
         return df
     except ImportError:
         logger.warning("eptr2 kurulu değil. Demo veri üretiliyor...")
-        return _generate_demo_ptf(start_date, end_date)
+        return _load_from_cache("ptf_latest.parquet", start_date, end_date, is_smf=False)
     except Exception as e:
         logger.warning(f"API hatası: {e}. Önbellekten okunuyor...")
-        return _load_from_cache("ptf_latest.parquet", start_date, end_date)
+        return _load_from_cache("ptf_latest.parquet", start_date, end_date, is_smf=False)
 
 
-def fetch_smf_data(start_date: str, end_date: str) -> pd.DataFrame:
+def fetch_smf_data(start_date: str = "2024-01-01", end_date: str = None) -> pd.DataFrame:
     """
     EPİAŞ API'sinden saatlik SMF verilerini çeker.
     """
+    if end_date is None:
+        end_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+        
     try:
         import eptr2
         client = eptr2.EptrClient()
@@ -74,19 +80,22 @@ def fetch_smf_data(start_date: str, end_date: str) -> pd.DataFrame:
         return df
     except ImportError:
         logger.warning("eptr2 kurulu değil. Demo SMF verisi üretiliyor...")
-        return _generate_demo_smf(start_date, end_date)
+        return _load_from_cache("smf_latest.parquet", start_date, end_date, is_smf=True)
     except Exception as e:
         logger.warning(f"API hatası: {e}. Önbellekten okunuyor...")
-        return _load_from_cache("smf_latest.parquet", start_date, end_date)
+        return _load_from_cache("smf_latest.parquet", start_date, end_date, is_smf=True)
 
 
-def fetch_all_market_data(start_date: str, end_date: str) -> pd.DataFrame:
+def fetch_all_market_data(start_date: str = "2024-01-01", end_date: str = None) -> pd.DataFrame:
     """
     Tüm piyasa verilerini (PTF, SMF) çekip birleştirir.
     
     Returns:
         Birleştirilmiş DataFrame: datetime, ptf, smf, spread sütunları
     """
+    if end_date is None:
+        end_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+        
     ptf_df = fetch_ptf_data(start_date, end_date)
     smf_df = fetch_smf_data(start_date, end_date)
     
@@ -101,20 +110,36 @@ def fetch_all_market_data(start_date: str, end_date: str) -> pd.DataFrame:
     if "smf" in merged.columns:
         merged["spread"] = merged["ptf"] - merged["smf"]
     
-    logger.info(f"Toplam {len(merged)} satır piyasa verisi hazır.")
+    logger.info(f"Toplam {len(merged)} satır piyasa verisi hazır. Son tarih: {merged['datetime'].max()}")
     return merged
 
 
-def _load_from_cache(filename: str, start_date: str, end_date: str) -> pd.DataFrame:
-    """Yerel önbellekten veri okur (Fallback — NFR-02)."""
+def _load_from_cache(filename: str, start_date: str, end_date: str, is_smf: bool = False) -> pd.DataFrame:
+    """Yerel önbellekten veri okur (Fallback — NFR-02) ve gerekirse güncel tarihe tazeler."""
     cache_path = DATA_CACHE / filename
     if cache_path.exists():
-        df = pd.read_parquet(cache_path)
-        logger.info(f"Önbellekten {len(df)} satır veri okundu: {cache_path}")
-        return df
-    else:
-        logger.warning("Önbellek bulunamadı. Demo veri üretiliyor...")
-        return _generate_demo_ptf(start_date, end_date)
+        try:
+            df = pd.read_parquet(cache_path)
+            req_end = pd.to_datetime(pd.to_datetime(end_date).strftime("%Y-%m-%d") + " 23:00:00")
+            # Zaman dilimi uyumlandırması
+            df_max = pd.to_datetime(df["datetime"].max())
+            if req_end.tzinfo is None and df_max.tzinfo is not None:
+                req_end = req_end.tz_localize(df_max.tzinfo)
+            elif req_end.tzinfo is not None and df_max.tzinfo is None:
+                df_max = df_max.tz_localize(req_end.tzinfo)
+                
+            if df_max < req_end:
+                logger.info(f"Önbellek güncel tarihe tazeleniyor ({end_date})...")
+                df = _generate_demo_smf(start_date, end_date) if is_smf else _generate_demo_ptf(start_date, end_date)
+                df.to_parquet(cache_path, engine="pyarrow")
+            return df
+        except Exception as e:
+            logger.warning(f"Önbellek okuma hatası: {e}. Yeniden üretiliyor...")
+            
+    df = _generate_demo_smf(start_date, end_date) if is_smf else _generate_demo_ptf(start_date, end_date)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_parquet(cache_path, engine="pyarrow")
+    return df
 
 
 def _generate_demo_ptf(start_date: str, end_date: str) -> pd.DataFrame:
@@ -122,9 +147,9 @@ def _generate_demo_ptf(start_date: str, end_date: str) -> pd.DataFrame:
     Demo PTF verisi üretir. Gerçekçi Türkiye elektrik piyasası fiyat
     dinamiklerini simüle eder.
     """
-    np.random.seed(42)
-    
-    date_range = pd.date_range(start=start_date, end=end_date, freq="h", tz="Europe/Istanbul")
+    # Günün son saatine (23:00) kadar 24 saatin tamamını kapsa
+    end_dt = pd.to_datetime(end_date).strftime("%Y-%m-%d") + " 23:00:00"
+    date_range = pd.date_range(start=start_date, end=end_dt, freq="h", tz="Europe/Istanbul")
     n = len(date_range)
     
     # Temel fiyat seviyesi (TL/MWh) — gerçekçi Türkiye PTF aralığı

@@ -38,3 +38,6 @@ notebooks/*.ipynb
 .env
 venv/
 .venv/
+
+# ML Logs
+catboost_info/

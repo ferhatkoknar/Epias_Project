@@ -19,6 +19,7 @@ from src.ui.styles import get_premium_css, get_header_html, get_section_header_h
 from src.ui.components import (
     render_sidebar, render_kpi_cards, render_model_info,
     render_risk_indicator, render_trading_summary,
+    render_navbar, render_documentation_page, render_home_page,
 )
 from src.ui.charts import (
     create_ptf_forecast_chart, create_error_distribution_chart,
@@ -53,74 +54,42 @@ st.markdown(get_premium_css(), unsafe_allow_html=True)
 # ─── Veri Yükleme (Cache) ───
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_and_prepare_data():
-    """Veriyi yükler, temizler ve öznitelikleri üretir."""
-    with st.spinner("Veriler hazırlanıyor..."):
-        # Veri çek (demo veya API)
-        raw_df = fetch_all_market_data("2024-01-01", "2026-09-01")
-        
-        # Temizle
+    """Veriyi yükler, temizler ve öznitelikleri üretir (bugünün güncel tarihine kadar)."""
+    with st.spinner("Güncel piyasa verileri hazırlanıyor..."):
+        raw_df = fetch_all_market_data(start_date="2024-01-01")
         clean_df = clean_market_data(raw_df)
-        
-        # Öznitelik mühendisliği
         featured_df = create_time_features(clean_df)
         featured_df = create_market_features(featured_df)
-        
         return clean_df, featured_df
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def train_and_evaluate(featured_df_hash, model_type):
-    """Model eğitir ve değerlendirir."""
+@st.cache_resource(show_spinner=False)
+def get_cached_model_and_predictions(model_type: str, data_len: int):
+    """Modeli 1 kez eğitip RAM'de önbelleğe alır. Sayfa geçişlerinde asla yeniden eğitmez!"""
     featured_df = st.session_state.get("featured_df")
-    if featured_df is None:
-        return None, None, None, None
-    
     feature_cols = get_feature_columns(featured_df)
-    target = "ptf"
-    
-    # Train/test split (son 30 gün test)
-    test_size = 30 * 24  # 30 gün x 24 saat
-    train_df = featured_df.iloc[:-test_size]
+    test_size = 30 * 24
     test_df = featured_df.iloc[-test_size:]
+    train_df = featured_df.iloc[:-test_size]
     
-    X_train = train_df[feature_cols]
-    y_train = train_df[target]
-    X_test = test_df[feature_cols]
-    y_test = test_df[target]
+    val_size = max(1, int(len(train_df) * 0.1))
+    X_val = train_df[feature_cols].iloc[-val_size:]
+    y_val = train_df["ptf"].iloc[-val_size:]
+    X_train = train_df[feature_cols].iloc[:-val_size]
+    y_train = train_df["ptf"].iloc[:-val_size]
     
-    # Model eğit
     from src.models.trainer import train_model, get_feature_importance
-    
-    # Validasyon seti (son %10 train)
-    val_size = max(1, int(len(X_train) * 0.1))
-    X_val = X_train.iloc[-val_size:]
-    y_val = y_train.iloc[-val_size:]
-    X_train_final = X_train.iloc[:-val_size]
-    y_train_final = y_train.iloc[:-val_size]
-    
-    model = train_model(
-        X_train_final, y_train_final,
-        X_val, y_val,
-        model_type=model_type,
-    )
-    
-    # Tahmin ve değerlendirme
-    predictions = model.predict(X_test)
-    metrics = evaluate_model(y_test.values, predictions)
-    
-    # Öznitelik önemi
+    model = train_model(X_train, y_train, X_val, y_val, model_type=model_type)
+    test_predictions = model.predict(test_df[feature_cols])
+    model_metrics = evaluate_model(test_df["ptf"].values, test_predictions)
     fi_df = get_feature_importance(model, feature_cols, model_type)
-    
-    return model, metrics, predictions, fi_df
+    return model, test_predictions, model_metrics, fi_df
 
 
 # ─── Ana Uygulama ───
 def main():
     # Başlık
     st.markdown(get_header_html(), unsafe_allow_html=True)
-    
-    # Sidebar
-    params = render_sidebar()
     
     # Veri yükle
     try:
@@ -132,162 +101,235 @@ def main():
     
     feature_cols = get_feature_columns(featured_df)
     
-    # Test verisi ayır
+    # Test verisi ayır (son 30 gün)
     test_size = 30 * 24
-    test_df = featured_df.iloc[-test_size:]
-    train_df = featured_df.iloc[:-test_size]
+    test_df = featured_df.iloc[-test_size:].copy()
     
-    # Model eğit/yükle
-    try:
-        with st.spinner("Model hazırlanıyor..."):
-            from src.models.trainer import train_model, get_feature_importance
-            
-            val_size = max(1, int(len(train_df) * 0.1))
-            X_val = train_df[feature_cols].iloc[-val_size:]
-            y_val = train_df["ptf"].iloc[-val_size:]
-            X_train = train_df[feature_cols].iloc[:-val_size]
-            y_train = train_df["ptf"].iloc[:-val_size]
-            
-            model = train_model(
-                X_train, y_train, X_val, y_val,
-                model_type=params["model_type"],
-            )
-            
-            # Test tahminleri
-            test_predictions = model.predict(test_df[feature_cols])
-            model_metrics = evaluate_model(test_df["ptf"].values, test_predictions)
-            fi_df = get_feature_importance(model, feature_cols, params["model_type"])
-    except Exception as e:
-        st.error(f"Model eğitim hatası: {e}")
-        logger.error(f"Model hatası: {e}", exc_info=True)
-        # Fallback metrikler
-        model = None
-        test_predictions = test_df["ptf"].values * np.random.uniform(0.92, 1.08, len(test_df))
-        model_metrics = evaluate_model(test_df["ptf"].values, test_predictions)
-        fi_df = pd.DataFrame({"feature": feature_cols[:10], "importance": range(10, 0, -1), "importance_pct": range(20, 0, -2)})
+    # Mevcut test tarih aralığı
+    test_dates = test_df["datetime"].dt.date.unique()
+    min_test_date = test_dates.min()
+    max_test_date = test_dates.max()
     
-    # 24 saatlik tahmin
-    forecast_df = predict_24h(model if model else None, test_df, feature_cols) if model else pd.DataFrame({
-        "datetime": test_df["datetime"].iloc[-24:].values,
-        "predicted_ptf": test_predictions[-24:],
-        "lower_bound": test_predictions[-24:] * 0.93,
-        "upper_bound": test_predictions[-24:] * 1.07,
-    })
+    # Sidebar (tarih sınırları ile)
+    params = render_sidebar(
+        min_date=min_test_date,
+        max_date=max_test_date,
+        default_date=max_test_date,
+    )
+    
+    # Modeli önbellekten al (her tıklamada sıfırdan eğitilmez!)
+    with st.spinner("Model optimize ediliyor..."):
+        model, test_predictions, model_metrics, fi_df = get_cached_model_and_predictions(
+            params["model_type"], len(featured_df)
+        )
+    
+    # Test setine tahminleri ekle
+    test_df["predicted_ptf"] = test_predictions
+    test_df["lower_bound"] = test_predictions - 1.96 * model_metrics.get("rmse", 50)
+    test_df["upper_bound"] = test_predictions + 1.96 * model_metrics.get("rmse", 50)
+    
+    # Seçili gün için tahmin ve metrikler
+    selected_date = params["target_date"]
+    
+    if "active_date" not in st.session_state or st.session_state.get("prev_target_date") != selected_date:
+        st.session_state["active_date"] = selected_date
+        st.session_state["prev_target_date"] = selected_date
+    
+    active_date = st.session_state["active_date"]
+    day_mask = test_df["datetime"].dt.date == active_date
+    day_data = test_df[day_mask]
+    
+    if len(day_data) == 0:
+        active_date = max_test_date
+        st.session_state["active_date"] = active_date
+        day_data = test_df[test_df["datetime"].dt.date == active_date]
+    
+    forecast_df = day_data[["datetime", "predicted_ptf", "lower_bound", "upper_bound"]].copy()
     forecast_summary = generate_forecast_summary(forecast_df)
+    day_metrics = evaluate_model(day_data["ptf"].values, day_data["predicted_ptf"].values)
     
-    # KPI Kartları
-    render_kpi_cards(forecast_summary, model_metrics)
+    # Backtest hesaplaması (tüm sayfalar ve export için hazır)
+    backtest_df = run_backtest(
+        actual_ptf=test_df["ptf"].values,
+        predicted_ptf=test_predictions,
+        datetimes=test_df["datetime"],
+        threshold_tl=params["threshold_tl"],
+        position_mwh=params["position_mwh"],
+        commission_rate=0.001,
+        strategy=params["strategy"],
+        risk_coefficient=params["risk_coefficient"],
+    )
+    trading_metrics = calculate_trading_metrics(backtest_df)
     
-    st.markdown("", unsafe_allow_html=True)
+    # ─── Üst Navbar ───
+    current_page = render_navbar()
     
-    # Model bilgi kartı
-    render_model_info(params["model_type"], model_metrics)
-    
-    # ─── Sekmeler ───
-    tab1, tab2, tab3 = st.tabs([
-        "Fiyat Projeksiyonu",
-        "Backtest & P/L Simülasyonu",
-        "Model Analizi",
-    ])
-    
-    # ─── SEKME 1: Fiyat Projeksiyonu ───
-    with tab1:
+    # ══════════════════════════════════════════════════════════
+    # SAYFA 0: 🏠 Ana Sayfa (Proje Özeti & Giriş) — VARSAYILAN
+    # ══════════════════════════════════════════════════════════
+    if current_page == "🏠 Ana Sayfa (Proje Özeti & Giriş)":
+        render_home_page(forecast_summary, model_metrics, trading_metrics)
+
+    # ══════════════════════════════════════════════════════════
+    # SAYFA 1: ⚡ Fiyat Tahmini (Canlı PTF Projeksiyonu)
+    # ══════════════════════════════════════════════════════════
+    elif current_page == "⚡ Fiyat Tahmini (Canlı PTF Projeksiyonu)":
+        # KPI Kartları (Seçili güne göre dinamik)
+        render_kpi_cards(forecast_summary, day_metrics)
+        st.markdown("", unsafe_allow_html=True)
+        render_model_info(params["model_type"], model_metrics)
+        
         st.markdown(get_section_header_html(
-            "24 Saatlik PTF Projeksiyonu",
-            "Gerçekleşen fiyat ve model tahmini karşılaştırması"
+            "PTF Fiyat Projeksiyonu & Geçmiş Analizi",
+            f"İncelenen Gün: {active_date.strftime('%d %B %Y')} — Gerçekleşen vs Model Tahmini"
         ), unsafe_allow_html=True)
         
-        # Ana grafik
-        actual_24 = test_df[["datetime", "ptf"]].tail(48)
-        fig_forecast = create_ptf_forecast_chart(actual_24, forecast_df)
-        st.plotly_chart(fig_forecast, use_container_width=True, config={"displayModeBar": False})
+        # ─── Tarih & Aralık Gezinme Çubuğu ───
+        c_nav_prev, c_nav_date, c_nav_next, c_nav_range = st.columns([1.2, 2.2, 1.2, 2.4])
+        
+        curr_idx = list(test_dates).index(active_date) if active_date in test_dates else len(test_dates) - 1
+        
+        with c_nav_prev:
+            if st.button("◀ Önceki Gün", use_container_width=True, disabled=(curr_idx == 0)):
+                st.session_state["active_date"] = test_dates[curr_idx - 1]
+                st.rerun()
+                
+        with c_nav_date:
+            date_selection = st.selectbox(
+                "Tarih Seç",
+                options=list(test_dates),
+                index=curr_idx,
+                format_func=lambda d: d.strftime("%d %B %Y (%A)"),
+                label_visibility="collapsed",
+            )
+            if date_selection != active_date:
+                st.session_state["active_date"] = date_selection
+                st.rerun()
+                
+        with c_nav_next:
+            if st.button("Sonraki Gün ▶", use_container_width=True, disabled=(curr_idx >= len(test_dates) - 1)):
+                st.session_state["active_date"] = test_dates[curr_idx + 1]
+                st.rerun()
+                
+        with c_nav_range:
+            view_mode = st.selectbox(
+                "Görünüm Aralığı",
+                options=["Seçili Gün (24 Saat)", "Son 3 Gün", "Son 7 Gün", "Tüm Test Dönemi (30 Gün)"],
+                index=0,
+                label_visibility="collapsed",
+            )
+        
+        # Görünüm moduna göre veri filtreleme
+        if view_mode == "Seçili Gün (24 Saat)":
+            plot_actual = test_df[test_df["datetime"].dt.date == active_date]
+            plot_forecast = forecast_df
+            chart_title = f"{active_date.strftime('%d %B %Y')} — 24 Saatlik PTF Projeksiyonu"
+        elif view_mode == "Son 3 Gün":
+            end_dt = pd.Timestamp(active_date) + pd.Timedelta(days=1)
+            start_dt = end_dt - pd.Timedelta(days=3)
+            sub = test_df[(test_df["datetime"] >= start_dt) & (test_df["datetime"] < end_dt)]
+            plot_actual = sub
+            plot_forecast = sub[["datetime", "predicted_ptf", "lower_bound", "upper_bound"]]
+            chart_title = f"Son 3 Günlük Fiyat Hareketi ({start_dt.strftime('%d %b')} - {active_date.strftime('%d %b')})"
+        elif view_mode == "Son 7 Gün":
+            end_dt = pd.Timestamp(active_date) + pd.Timedelta(days=1)
+            start_dt = end_dt - pd.Timedelta(days=7)
+            sub = test_df[(test_df["datetime"] >= start_dt) & (test_df["datetime"] < end_dt)]
+            plot_actual = sub
+            plot_forecast = sub[["datetime", "predicted_ptf", "lower_bound", "upper_bound"]]
+            chart_title = f"Son 7 Günlük Fiyat Hareketi ({start_dt.strftime('%d %b')} - {active_date.strftime('%d %b')})"
+        else:
+            plot_actual = test_df
+            plot_forecast = test_df[["datetime", "predicted_ptf", "lower_bound", "upper_bound"]]
+            chart_title = "Tüm Test Dönemi (30 Günlük) PTF Fiyat Eğrisi & Tahminler"
+        
+        # Yakınlaştırma (zoom) aktif Plotly konfigürasyonu
+        fig_forecast = create_ptf_forecast_chart(
+            plot_actual,
+            plot_forecast,
+            title=chart_title,
+            show_rangeslider=True,
+        )
+        st.plotly_chart(
+            fig_forecast, 
+            use_container_width=True, 
+            config={
+                "scrollZoom": True,
+                "displayModeBar": True,
+                "displaylogo": False,
+                "modeBarButtonsToAdd": ["zoom2d", "pan2d", "zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d"],
+            }
+        )
         
         # Hata analizi
         col_left, col_right = st.columns([1.1, 0.9])
-        
         with col_left:
             st.markdown(get_section_header_html("Tahmin Hata Analizi"), unsafe_allow_html=True)
-            hours = test_df["datetime"].dt.hour.values
+            hours = plot_actual["datetime"].dt.hour.values
             fig_err = create_error_distribution_chart(
-                test_df["ptf"].values, test_predictions, hours
+                plot_actual["ptf"].values, plot_forecast["predicted_ptf"].values, hours
             )
             st.plotly_chart(fig_err, use_container_width=True, config={"displayModeBar": False})
         
         with col_right:
-            st.markdown(get_section_header_html("Spread & Risk"), unsafe_allow_html=True)
-            
-            if "smf" in test_df.columns:
+            st.markdown(get_section_header_html("Piyasa Riski & Spread"), unsafe_allow_html=True)
+            if "smf" in plot_actual.columns:
                 risk_df = calculate_spread_risk(
-                    test_df["ptf"].values,
-                    test_df["smf"].values,
-                    test_predictions,
+                    plot_actual["ptf"].values,
+                    plot_actual["smf"].values,
+                    plot_forecast["predicted_ptf"].values,
                 )
                 risk_summary = get_risk_summary(risk_df)
                 render_risk_indicator(risk_summary["current_risk"], risk_summary["current_color"])
-                
                 fig_spread = create_spread_risk_chart(risk_df.tail(168))
                 st.plotly_chart(fig_spread, use_container_width=True, config={"displayModeBar": False})
-            else:
-                st.info("Spread analizi için SMF verisi gerekli.")
-    
-    # ─── SEKME 2: Backtest & P&L ───
-    with tab2:
+
+    # ══════════════════════════════════════════════════════════
+    # SAYFA 2: 📈 Trading Masası (P&L & Portföy Backtest)
+    # ══════════════════════════════════════════════════════════
+    elif current_page == "📈 Trading Masası (P&L & Portföy Backtest)":
         st.markdown(get_section_header_html(
-            "Trading Simülasyonu",
-            "Geçmişe dönük strateji performans analizi"
+            "Enerji Trading Masası & Backtest Simülasyonu",
+            "Model sinyallerine göre geçmişe dönük kâr/zarar ve portföy risk performansı"
         ), unsafe_allow_html=True)
         
-        # Backtest çalıştır
-        backtest_df = run_backtest(
-            actual_ptf=test_df["ptf"].values,
-            predicted_ptf=test_predictions,
-            datetimes=test_df["datetime"],
-            threshold_tl=params["threshold_tl"],
-            position_mwh=params["position_mwh"],
-            commission_rate=0.001,
-            strategy=params["strategy"],
-            risk_coefficient=params["risk_coefficient"],
-        )
-        trading_metrics = calculate_trading_metrics(backtest_df)
-        
-        # Trading özet kartı
         render_trading_summary(trading_metrics)
-        
         st.markdown("", unsafe_allow_html=True)
         
         # P&L grafiği
         fig_pnl = create_pnl_chart(backtest_df)
         st.plotly_chart(fig_pnl, use_container_width=True, config={"displayModeBar": False})
         
-        # Detay tablosu
-        with st.expander("İşlem Detayları"):
-            trades_only = backtest_df[backtest_df["signal"] != 0][
-                ["datetime", "actual_ptf", "predicted_ptf", "signal", "pnl", "cumulative_pnl"]
-            ].copy()
-            trades_only["signal"] = trades_only["signal"].map({1: "ALIŞ", -1: "SATIŞ"})
-            trades_only = trades_only.rename(columns={
-                "datetime": "Tarih/Saat",
-                "actual_ptf": "Gerçek PTF",
-                "predicted_ptf": "Tahmin PTF",
-                "signal": "Sinyal",
-                "pnl": "P&L (TL)",
-                "cumulative_pnl": "Küm. P&L (TL)",
-            })
-            st.dataframe(trades_only.tail(50), use_container_width=True, hide_index=True)
-    
-    # ─── SEKME 3: Model Analizi ───
-    with tab3:
+        # İşlem detay defteri
+        st.markdown(get_section_header_html("İşlem Defteri (Trade Log)"), unsafe_allow_html=True)
+        trades_only = backtest_df[backtest_df["signal"] != 0][
+            ["datetime", "actual_ptf", "predicted_ptf", "signal", "position_mwh", "pnl", "cumulative_pnl"]
+        ].copy()
+        trades_only["signal"] = trades_only["signal"].map({1: "🟢 ALIŞ", -1: "🔴 SATIŞ"})
+        trades_only = trades_only.rename(columns={
+            "datetime": "Tarih/Saat",
+            "actual_ptf": "Gerçek PTF (TL)",
+            "predicted_ptf": "Tahmin PTF (TL)",
+            "signal": "İşlem Yönü",
+            "position_mwh": "Hacim (MWh)",
+            "pnl": "İşlem P&L (TL)",
+            "cumulative_pnl": "Kümülatif Kâr (TL)",
+        })
+        st.dataframe(trades_only.tail(100), use_container_width=True, hide_index=True, height=360)
+
+    # ══════════════════════════════════════════════════════════
+    # SAYFA 3: 🧠 AI Laboratuvarı (CatBoost & Metrikler)
+    # ══════════════════════════════════════════════════════════
+    elif current_page == "🧠 AI Laboratuvarı (CatBoost & Metrikler)":
         st.markdown(get_section_header_html(
-            "Model Performans Detayları",
-            "Öznitelik önemi ve metrik breakdown"
+            "Yapay Zeka & Model Laboratuvarı",
+            "Algoritma başarı metrikleri, öznitelik önemi ve hata analiz matrisi"
         ), unsafe_allow_html=True)
         
         col_a, col_b = st.columns([1, 1])
         
         with col_a:
-            # Metrikler tablosu
-            st.markdown(get_section_header_html("Performans Metrikleri"), unsafe_allow_html=True)
-            
+            st.markdown(get_section_header_html("Model Doğrulama Metrikleri"), unsafe_allow_html=True)
             metric_data = {
                 "Metrik": ["MAPE", "RMSE", "MAE", "R²", "Yön Doğruluğu", "Maks. Hata"],
                 "Değer": [
@@ -298,26 +340,21 @@ def main():
                     f"%{model_metrics['directional_accuracy']:.1f}",
                     f"{model_metrics['max_error']:,.1f} TL",
                 ],
-                "Hedef": ["< %12", "—", "—", "—", "> %70", "—"],
-                "Durum": [
-                    "Basarili" if model_metrics["mape"] < 12 else "Asildi",
-                    "—",
-                    "—",
-                    "—",
-                    "Basarili" if model_metrics["directional_accuracy"] > 70 else "Gelistirilmeli",
+                "SRS Kabul Eşiği": ["< %12.0", "—", "—", "—", "> %70.0", "—"],
+                "Sonuç": [
+                    "✅ BAŞARILI" if model_metrics["mape"] < 12 else "❌ AŞILDI",
+                    "—", "—", "—",
+                    "✅ BAŞARILI" if model_metrics["directional_accuracy"] > 70 else "⚠️ GELİŞTİRİLMELİ",
                     "—",
                 ],
             }
             st.dataframe(pd.DataFrame(metric_data), use_container_width=True, hide_index=True)
             
-            # Hata dağılımı istatistikleri
             error_dist = calculate_error_distribution(test_df["ptf"].values, test_predictions)
-            st.markdown(get_section_header_html("Hata Dağılımı"), unsafe_allow_html=True)
-            
+            st.markdown(get_section_header_html("Hata Dağılım İstatistikleri"), unsafe_allow_html=True)
             dist_data = {
-                "Istatistik": ["Ort. Hata", "Std. Sapma", "Medyan (P50)", "P75", "P95",
-                              "%5 icerisinde", "%10 icerisinde"],
-                "Deger": [
+                "İstatistik": ["Ortalama Hata", "Standart Sapma", "Medyan (P50)", "P75", "P95", "%5 Bant İçi", "%10 Bant İçi"],
+                "Değer": [
                     f"{error_dist['error_mean']:,.0f} TL",
                     f"{error_dist['error_std']:,.0f} TL",
                     f"{error_dist['abs_error_p50']:,.0f} TL",
@@ -328,24 +365,62 @@ def main():
                 ],
             }
             st.dataframe(pd.DataFrame(dist_data), use_container_width=True, hide_index=True)
-        
+            
         with col_b:
-            st.markdown(get_section_header_html("Öznitelik Önemi"), unsafe_allow_html=True)
+            st.markdown(get_section_header_html("Öznitelik Önemi (Feature Importance)"), unsafe_allow_html=True)
             fig_fi = create_feature_importance_chart(fi_df)
             st.plotly_chart(fig_fi, use_container_width=True, config={"displayModeBar": False})
             
-            # Saatlik hata
-            st.markdown(get_section_header_html("Saatlik Performans"), unsafe_allow_html=True)
+            st.markdown(get_section_header_html("24 Saatlik Performans Dökümü"), unsafe_allow_html=True)
             hourly_metrics = evaluate_hourly(
                 test_df["ptf"].values, test_predictions, test_df["datetime"].dt.hour.values
             )
             hourly_display = hourly_metrics[["hour", "mape", "rmse", "bias"]].copy()
             hourly_display.columns = ["Saat", "MAPE (%)", "RMSE (TL)", "Bias (TL)"]
-            hourly_display["MAPE (%)"] = hourly_display["MAPE (%)"].round(1)
+            hourly_display["MAPE (%)"] = hourly_display["MAPE (%)"].round(2)
             hourly_display["RMSE (TL)"] = hourly_display["RMSE (TL)"].round(0)
             hourly_display["Bias (TL)"] = hourly_display["Bias (TL)"].round(0)
-            st.dataframe(hourly_display, use_container_width=True, hide_index=True, height=400)
-    
+            st.dataframe(hourly_display, use_container_width=True, hide_index=True, height=280)
+
+    # ══════════════════════════════════════════════════════════
+    # SAYFA 4: 📊 Risk Radarı (SMF & Spread Derinliği)
+    # ══════════════════════════════════════════════════════════
+    elif current_page == "📊 Risk Radarı (SMF & Spread Derinliği)":
+        st.markdown(get_section_header_html(
+            "Piyasa Derinliği & Dengesizlik Risk Radarı",
+            "PTF vs SMF spread analizi ve sistem marjinal dengesizlik riskleri"
+        ), unsafe_allow_html=True)
+        
+        if "smf" in test_df.columns:
+            all_risk_df = calculate_spread_risk(
+                test_df["ptf"].values,
+                test_df["smf"].values,
+                test_predictions,
+            )
+            risk_summary = get_risk_summary(all_risk_df)
+            
+            col_r1, col_r2, col_r3, col_r4 = st.columns(4)
+            with col_r1:
+                st.metric("Ortalama Spread", f"{risk_summary['avg_spread']:.1f} TL")
+            with col_r2:
+                st.metric("Maksimum Spread", f"{risk_summary['max_spread']:.1f} TL")
+            with col_r3:
+                st.metric("Volatilite (Std)", f"{risk_summary['std_spread']:.1f} TL")
+            with col_r4:
+                st.metric("Yüksek Risk Oranı", f"%{risk_summary['pct_high_risk']:.1f}")
+            
+            st.markdown("", unsafe_allow_html=True)
+            fig_spread_all = create_spread_risk_chart(all_risk_df)
+            st.plotly_chart(fig_spread_all, use_container_width=True, config={"displayModeBar": False})
+        else:
+            st.info("SMF verisi bulunamadı.")
+
+    # ══════════════════════════════════════════════════════════
+    # SAYFA 5: ℹ️ Proje Rehberi (EPİAŞ Sözlüğü & Mimari)
+    # ══════════════════════════════════════════════════════════
+    elif current_page == "ℹ️ Proje Rehberi (EPİAŞ Sözlüğü & Mimari)":
+        render_documentation_page()
+
     # ─── Dışa Aktarma ───
     if params["export_csv"]:
         csv_data = export_predictions_csv(forecast_df, test_df, model_metrics)
@@ -359,7 +434,7 @@ def main():
     if params["export_report"]:
         report = generate_technical_report(
             model_metrics,
-            trading_metrics if "trading_metrics" in dir() else None,
+            trading_metrics,
             forecast_summary,
             params["model_type"],
         )

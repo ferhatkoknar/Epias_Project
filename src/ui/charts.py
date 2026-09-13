@@ -46,6 +46,7 @@ def create_ptf_forecast_chart(
     forecast_df: pd.DataFrame = None,
     title: str = "24 Saatlik PTF Fiyat Projeksiyonu",
     height: int = 460,
+    show_rangeslider: bool = True,
 ) -> go.Figure:
     """Gerçekleşen PTF vs Model Tahmini."""
     fig = go.Figure()
@@ -59,7 +60,7 @@ def create_ptf_forecast_chart(
         line=dict(color="#3b82f6", width=1.8),
         fill="tozeroy",
         fillcolor="rgba(59, 130, 246, 0.04)",
-        hovertemplate="<b>Gerçek</b><br>%{x|%H:%M}<br>%{y:,.0f} TL/MWh<extra></extra>",
+        hovertemplate="<b>Gerçek</b>: %{y:,.0f} TL/MWh<br>%{x|%d %b %H:%M}<extra></extra>",
     ))
     
     if forecast_df is not None and len(forecast_df) > 0:
@@ -92,11 +93,44 @@ def create_ptf_forecast_chart(
             name="Model Tahmini",
             line=dict(color="#f59e0b", width=1.8, dash="dot"),
             marker=dict(size=4, color="#f59e0b"),
-            hovertemplate="<b>Tahmin</b><br>%{x|%H:%M}<br>%{y:,.0f} TL/MWh<extra></extra>",
+            hovertemplate="<b>Tahmin</b>: %{y:,.0f} TL/MWh<br>%{x|%d %b %H:%M}<extra></extra>",
         ))
     
+    xaxis_config = dict(
+        gridcolor="rgba(255,255,255,0.03)",
+        zerolinecolor="rgba(255,255,255,0.05)",
+        tickfont=dict(family="JetBrains Mono, monospace", size=10),
+    )
+    if show_rangeslider:
+        xaxis_config["rangeslider"] = dict(
+            visible=True,
+            bgcolor="rgba(15, 23, 42, 0.6)",
+            thickness=0.08,
+            bordercolor="rgba(255, 255, 255, 0.08)",
+        )
+        xaxis_config["rangeselector"] = dict(
+            buttons=[
+                dict(count=6, label="🔍 6 Saat", step="hour", stepmode="backward"),
+                dict(count=12, label="🔍 12 Saat", step="hour", stepmode="backward"),
+                dict(count=24, label="🔍 24 Saat (1 Gün)", step="hour", stepmode="backward"),
+                dict(count=3, label="📅 3 Gün", step="day", stepmode="backward"),
+                dict(count=7, label="📅 7 Gün", step="day", stepmode="backward"),
+                dict(step="all", label="Tümü"),
+            ],
+            bgcolor="rgba(16, 22, 34, 0.9)",
+            activecolor="rgba(59, 130, 246, 0.4)",
+            font=dict(color="#9ca3af", size=10, family="Inter, sans-serif"),
+            bordercolor="rgba(255, 255, 255, 0.1)",
+            borderwidth=1,
+            y=1.12,
+            x=0.0,
+        )
+    
+    layout_opts = {**DARK_LAYOUT}
+    layout_opts["xaxis"] = xaxis_config
+    
     fig.update_layout(
-        **DARK_LAYOUT,
+        **layout_opts,
         title=dict(text=title, x=0.01, y=0.97),
         xaxis_title="",
         yaxis_title="TL/MWh",

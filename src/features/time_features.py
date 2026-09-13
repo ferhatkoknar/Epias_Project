@@ -146,6 +146,7 @@ def _add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+
 def _add_diff_features(df: pd.DataFrame, target_col: str) -> pd.DataFrame:
     """Fark (değişim) öznitelikleri üretir."""
     # Saatlik fark

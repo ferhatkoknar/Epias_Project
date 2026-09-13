@@ -247,6 +247,135 @@ def get_premium_css() -> str:
     .status-warning { background: #eab308; }
     .status-danger { background: #ef4444; }
     
+    /* ─── Modern Tam Genişlik Navbar Stilleri ─── */
+    .navbar-wrapper {
+        background: rgba(14, 18, 26, 0.95);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 6px;
+        margin-bottom: 24px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+        width: 100% !important;
+    }
+    
+    /* Streamlit Radio / Pills Navbar Özelleştirmesi */
+    div[data-testid="stRadio"] > div[role="radiogroup"] {
+        background: transparent !important;
+        gap: 8px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        width: 100% !important;
+        border: none !important;
+    }
+    
+    div[data-testid="stRadio"] > div[role="radiogroup"] > label {
+        flex: 1 1 0px !important;
+        background: rgba(22, 28, 40, 0.7) !important;
+        border: 1px solid rgba(255, 255, 255, 0.06) !important;
+        border-radius: 9px !important;
+        padding: 12px 10px !important;
+        color: #9ca3af !important;
+        font-family: 'Inter', sans-serif !important;
+        font-size: 0.85rem !important;
+        font-weight: 500 !important;
+        cursor: pointer !important;
+        text-align: center !important;
+        justify-content: center !important;
+        align-items: center !important;
+        transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+    }
+    
+    div[data-testid="stRadio"] > div[role="radiogroup"] > label:hover {
+        background: rgba(59, 130, 246, 0.14) !important;
+        border-color: rgba(59, 130, 246, 0.4) !important;
+        color: #f3f4f6 !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    }
+    
+    div[data-testid="stRadio"] > div[role="radiogroup"] > label[data-checked="true"],
+    div[data-testid="stRadio"] > div[role="radiogroup"] > label:has(input:checked) {
+        background: linear-gradient(135deg, rgba(37, 99, 235, 0.35), rgba(59, 130, 246, 0.18)) !important;
+        border-color: #3b82f6 !important;
+        color: #60a5fa !important;
+        font-weight: 700 !important;
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.3) !important;
+    }
+    
+    /* Radio yuvarlak butonunu gizle, sadece şık buton görünümü ver */
+    div[data-testid="stRadio"] input[type="radio"] {
+        display: none !important;
+    }
+    
+    /* Radio yuvarlak simgesini küçült/gizle */
+    div[data-testid="stRadio"] [data-baseweb="radio"] > div:first-child:not([data-testid="stMarkdownContainer"]) {
+        display: none !important;
+    }
+    
+    /* Buton içindeki metni net, parlak ve belirgin göster */
+    div[data-testid="stRadio"] [data-testid="stMarkdownContainer"] {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 100% !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    div[data-testid="stRadio"] [data-testid="stMarkdownContainer"] p {
+        font-family: 'Inter', sans-serif !important;
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        color: #e2e8f0 !important;
+        margin: 0 !important;
+        padding: 4px 6px !important;
+        text-align: center !important;
+        line-height: 1.3 !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        white-space: normal !important;
+    }
+    
+    div[data-testid="stRadio"] label:hover [data-testid="stMarkdownContainer"] p {
+        color: #ffffff !important;
+    }
+    
+    div[data-testid="stRadio"] label[data-checked="true"] [data-testid="stMarkdownContainer"] p,
+    div[data-testid="stRadio"] label:has(input:checked) [data-testid="stMarkdownContainer"] p {
+        color: #60a5fa !important;
+        font-weight: 700 !important;
+    }
+    
+    /* Bilgi ve Rehber Kartları */
+    .guide-card {
+        background: #141820;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 16px;
+        transition: border-color 0.2s;
+    }
+    .guide-card:hover {
+        border-color: rgba(59, 130, 246, 0.25);
+    }
+    .guide-title {
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #f3f4f6;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .guide-body {
+        font-size: 0.85rem;
+        color: #9ca3af;
+        line-height: 1.6;
+    }
     </style>
     """
 
