@@ -60,6 +60,32 @@ def export_predictions_csv(
     return clean_csv_df.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
 
 
+def _sanitize_df_for_excel(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Excel (.xlsx) çıktısı öncesi tüm zaman dilimlerini (timezone) temizler.
+    openpyxl timezone-aware datetimes ile karşılaştığında ValueError fırlatır.
+    """
+    if df is None or len(df) == 0:
+        return pd.DataFrame()
+    df_clean = df.copy()
+    df_clean.reset_index(drop=True, inplace=True)
+    for col in df_clean.columns:
+        if pd.api.types.is_datetime64_any_dtype(df_clean[col]):
+            try:
+                if df_clean[col].dt.tz is not None:
+                    df_clean[col] = df_clean[col].dt.tz_localize(None)
+            except Exception:
+                df_clean[col] = df_clean[col].dt.strftime("%Y-%m-%d %H:%M")
+        elif df_clean[col].dtype == object:
+            try:
+                first_val = df_clean[col].dropna().iloc[0] if len(df_clean[col].dropna()) > 0 else None
+                if isinstance(first_val, (pd.Timestamp, datetime)):
+                    df_clean[col] = pd.to_datetime(df_clean[col]).dt.strftime("%Y-%m-%d %H:%M")
+            except Exception:
+                pass
+    return df_clean
+
+
 def export_predictions_excel(
     day_df: pd.DataFrame,
     model_metrics: dict = None,
@@ -103,7 +129,7 @@ def export_predictions_excel(
                 r["Spread PTF-SMF (TL)"] = round(actual - smf_val, 2)
             rows.append(r)
             
-        pd.DataFrame(rows).to_excel(writer, sheet_name="24s_Fiyat_Tahminleri", index=False)
+        _sanitize_df_for_excel(pd.DataFrame(rows)).to_excel(writer, sheet_name="24s_Fiyat_Tahminleri", index=False)
         
         # 2. Sekme: Model Performansı
         if model_metrics:
@@ -115,7 +141,7 @@ def export_predictions_excel(
                 {"Metrik Adı": "R² Belirlilik Katsayısı", "Değer": f"{model_metrics.get('r2', 0):.4f}", "Kabul Kriteri": "> 0.8500", "Durum": "BAŞARILI"},
                 {"Metrik Adı": "24s Çıkarım Gecikmesi (Latency)", "Değer": f"{model_metrics.get('infer_time_24h_ms', 0):.2f} ms", "Kabul Kriteri": "< 500.0 ms", "Durum": "BAŞARILI"},
             ]
-            pd.DataFrame(m_rows).to_excel(writer, sheet_name="Model_Performansi", index=False)
+            _sanitize_df_for_excel(pd.DataFrame(m_rows)).to_excel(writer, sheet_name="Model_Performansi", index=False)
             
         # 3. Sekme: Trading Masası Metrikleri
         if trading_metrics:
@@ -130,24 +156,25 @@ def export_predictions_excel(
                 {"Trading Parametresi": "Sharpe Oranı", "Değer": f"{trading_metrics.get('sharpe_ratio', 0):.2f}"},
                 {"Trading Parametresi": "Profit Factor", "Değer": f"{trading_metrics.get('profit_factor', 0):.2f}"},
             ]
-            pd.DataFrame(t_rows).to_excel(writer, sheet_name="Trading_Performansi", index=False)
+            _sanitize_df_for_excel(pd.DataFrame(t_rows)).to_excel(writer, sheet_name="Trading_Performansi", index=False)
             
         # 4. Sekme: İşlem Defteri (Varsa)
         if backtest_df is not None:
-            trades = backtest_df[backtest_df["signal"] != 0].copy()
-            if len(trades) > 0:
-                trades["İşlem"] = trades["signal"].map({1: "AL", -1: "SAT"})
-                trades_export = trades[["datetime", "İşlem", "actual_ptf", "predicted_ptf", "position_mwh", "pnl", "cumulative_pnl"]].rename(columns={
-                    "datetime": "Tarih / Saat",
-                    "actual_ptf": "Gerçekleşen PTF (TL)",
-                    "predicted_ptf": "Tahmin PTF (TL)",
-                    "position_mwh": "Pozisyon (MWh)",
-                    "pnl": "İşlem P&L (TL)",
-                    "cumulative_pnl": "Kümülatif P&L (TL)",
-                })
-                # Excel açıkça saat dilimi (tz-aware) içeren datetime nesnelerini desteklemez
-                trades_export["Tarih / Saat"] = pd.to_datetime(trades_export["Tarih / Saat"]).dt.strftime("%Y-%m-%d %H:%M")
-                trades_export.to_excel(writer, sheet_name="Islem_Defteri", index=False)
+            try:
+                trades = backtest_df[backtest_df["signal"] != 0].copy()
+                if len(trades) > 0:
+                    trades["İşlem"] = trades["signal"].map({1: "AL", -1: "SAT"})
+                    trades_export = trades[["datetime", "İşlem", "actual_ptf", "predicted_ptf", "position_mwh", "pnl", "cumulative_pnl"]].rename(columns={
+                        "datetime": "Tarih / Saat",
+                        "actual_ptf": "Gerçekleşen PTF (TL)",
+                        "predicted_ptf": "Tahmin PTF (TL)",
+                        "position_mwh": "Pozisyon (MWh)",
+                        "pnl": "İşlem P&L (TL)",
+                        "cumulative_pnl": "Kümülatif P&L (TL)",
+                    })
+                    _sanitize_df_for_excel(trades_export).to_excel(writer, sheet_name="Islem_Defteri", index=False)
+            except Exception as e:
+                logger.warning(f"Islem_Defteri sekmesi yazılırken hata: {e}")
                 
     return buffer.getvalue()
 
