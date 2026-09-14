@@ -452,8 +452,8 @@ def get_ticker_bar_html(
             <span style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #60a5fa; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.68rem;">{session_name}</span>
         </div>
         <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-            <div>PTF SON: <span style="color: #f8fafc; font-weight: 600;">{last_ptf:,.0f} TL</span></div>
-            <div>TABAN: <span style="color: #cbd5e1;">{base_load:,.0f} TL</span></div>
+            <div>PTF GÜNCEL: <span style="color: #f8fafc; font-weight: 600;">{last_ptf:,.0f} TL</span></div>
+            <div>BAZ YÜK: <span style="color: #cbd5e1;">{base_load:,.0f} TL</span></div>
             <div>PUANT: <span style="color: #60a5fa; font-weight: 600;">{peak_load:,.0f} TL</span></div>
             <div>SPREAD: <span style="color: {'#22c55e' if spread_val >= 0 else '#ef4444'};">{spread_val:+,.0f} TL</span></div>
             <div style="display: flex; align-items: center; gap: 6px;">
