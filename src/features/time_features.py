@@ -148,19 +148,24 @@ def _add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _add_diff_features(df: pd.DataFrame, target_col: str) -> pd.DataFrame:
-    """Fark (değişim) öznitelikleri üretir."""
-    # Saatlik fark
-    df["diff_1h"] = df[target_col].diff(1)
+    """
+    Fark (değişim) öznitelikleri üretir.
+    Strictly causal (NFR-02): Hedef değişken shift(1) ile kaydırılarak geçmiş değişimler hesaplanır.
+    """
+    shifted = df[target_col].shift(1)
+    
+    # Saatlik fark (t-1 ile t-2 farkı)
+    df["diff_1h"] = shifted.diff(1)
     
     # Günlük fark (aynı saat bir gün önce)
-    df["diff_24h"] = df[target_col].diff(24)
+    df["diff_24h"] = shifted.diff(24)
     
     # Haftalık fark
-    df["diff_168h"] = df[target_col].diff(168)
+    df["diff_168h"] = shifted.diff(168)
     
     # Yüzdesel değişim
-    df["pct_change_1h"] = df[target_col].pct_change(1).astype(np.float32)
-    df["pct_change_24h"] = df[target_col].pct_change(24).astype(np.float32)
+    df["pct_change_1h"] = shifted.pct_change(1).astype(np.float32)
+    df["pct_change_24h"] = shifted.pct_change(24).astype(np.float32)
     
     return df
 
