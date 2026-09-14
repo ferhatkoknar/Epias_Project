@@ -389,15 +389,12 @@ def render_market_ticker_bar(df_day: pd.DataFrame, model_metrics: dict = None):
     peak_load = float(peak_df["ptf"].mean()) if len(peak_df) > 0 else base_load * 1.15
     
     spread_val = last_ptf - last_smf
-        if spread_val > 50:
-            sys_dir = "ENERJİ FAZLASI (PTF > SMF)"
-        elif spread_val < -50:
-            sys_dir = "ENERJİ AÇIĞI (PTF < SMF)"
-        else:
-            sys_dir = "DENGEDE"
-    else:
-        spread_val = 140.0
+    if spread_val > 50:
         sys_dir = "ENERJİ FAZLASI (PTF > SMF)"
+    elif spread_val < -50:
+        sys_dir = "ENERJİ AÇIĞI (PTF < SMF)"
+    else:
+        sys_dir = "DENGEDE"
         
     from src.ui.styles import get_ticker_bar_html, render_html
     render_html(get_ticker_bar_html(
