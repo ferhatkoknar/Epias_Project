@@ -594,8 +594,8 @@ def render_documentation_page():
             <div class="guide-body">
                 Modelin başarısı uluslararası enerji tahminleme standartlarına göre doğrulanır:
                 <ul>
-                    <li><b>MAPE (Mean Absolute Percentage Error):</b> Ortalama yüzde sapma. Hedef: &lt; %12 (Terminal başarımı: %0.3 - %3.5).</li>
-                    <li><b>Yön Doğruluğu (Directional Accuracy):</b> Fiyatın yukarı/aşağı yön tahmin başarısı. Hedef: &gt; %70 (Terminal: %92 - %98).</li>
+                    <li><b>MAPE (Mean Absolute Percentage Error):</b> Ortalama yüzde sapma. Hedef: &lt; %12 (Terminal başarımı: ~%4.7 - %4.8).</li>
+                    <li><b>Yön Doğruluğu (Directional Accuracy):</b> Fiyatın yukarı/aşağı yön tahmin başarısı. Hedef: &gt; %70 (Terminal: ~%76 - %77).</li>
                     <li><b>Çıkarım Hızı:</b> 24 saatlik fiyat çıkarımı &lt; 500 ms (Terminal hızı: ~4.5 ms).</li>
                     <li><b>Maksimum Drawdown:</b> Backtest'teki en büyük tepe-dip sermaye kaybı yüzdesi.</li>
                 </ul>
