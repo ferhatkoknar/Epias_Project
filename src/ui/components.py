@@ -46,6 +46,14 @@ def render_sidebar(min_date=None, max_date=None, default_date=None) -> dict:
         }
         model_type = model_map[model_selection]
         
+        forecast_method = st.selectbox(
+            "Tahminleme Ufku / Yöntem",
+            options=["recursive", "direct"],
+            index=0,
+            format_func=lambda x: "[12:30 UYUMLU] Özyinelemeli" if x == "recursive" else "[STANDART] Doğrudan (Direct)",
+            help="Özyinelemeli yöntem: EPİAŞ 12:30 kapı kapanışı kuralına göre gelecek saatlerin bilinmeyen lag değerlerini modelin adım adım rollout tahminleriyle simüle eder (Sıfır Gelecek Sızıntısı)."
+        )
+        
         st.markdown("---")
         st.markdown("##### Trading Parametreleri")
         
@@ -83,6 +91,7 @@ def render_sidebar(min_date=None, max_date=None, default_date=None) -> dict:
     return {
         "target_date": target_date,
         "model_type": model_type.lower(),
+        "forecast_method": forecast_method,
         "risk_coefficient": risk_coeff,
         "position_mwh": position_mwh,
         "threshold_tl": threshold,
@@ -244,7 +253,7 @@ def render_kpi_cards(summary: dict, model_metrics: dict = None):
         )
 
 
-def render_model_info(model_type: str, metrics: dict):
+def render_model_info(model_type: str, metrics: dict, forecast_method: str = "recursive"):
     """Model bilgi kartı — sade."""
     mape = metrics.get("mape", 0)
     status_class = "status-active" if mape < 12 else "status-warning" if mape < 15 else "status-danger"
@@ -254,12 +263,17 @@ def render_model_info(model_type: str, metrics: dict):
         model_name = "LightGBM Regressor"
     else:
         model_name = "Ensemble Hibrit (CatBoost + LightGBM)"
+        
+    if forecast_method == "recursive":
+        badge_html = '<span style="background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 8px; border-radius: 4px; font-size: 0.68rem; font-family: \'JetBrains Mono\', monospace; margin-left: 8px; font-weight: 500;">[12:30 KAPI KAPANIŞI UYUMLU: ÖZYİNELEMELİ]</span>'
+    else:
+        badge_html = '<span style="background: rgba(59, 130, 246, 0.12); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); padding: 2px 8px; border-radius: 4px; font-size: 0.68rem; font-family: \'JetBrains Mono\', monospace; margin-left: 8px; font-weight: 500;">[STANDART: DOĞRUDAN ÇIKARIM]</span>'
     
     render_html(f"""
     <div class="info-card" style="display: flex; justify-content: space-between; align-items: center;">
         <div>
             <div style="color: #6b7280; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; font-family: Inter, sans-serif;">
-                <span class="{status_class} status-indicator"></span> Aktif Model
+                <span class="{status_class} status-indicator"></span> Aktif Model & Mimari {badge_html}
             </div>
             <div style="color: #e5e7eb; font-size: 1rem; font-weight: 600; font-family: Inter, sans-serif; margin-top: 4px;">
                 {model_name}

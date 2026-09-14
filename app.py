@@ -38,7 +38,7 @@ from src.data.fetcher import fetch_all_market_data
 from src.data.cleaner import clean_market_data
 from src.features.time_features import create_time_features, get_feature_columns
 from src.features.market_features import create_market_features
-from src.models.predictor import generate_forecast_summary
+from src.models.predictor import generate_forecast_summary, predict_24h, predict_24h_recursive
 from src.models.evaluator import evaluate_model, evaluate_hourly, calculate_error_distribution
 from src.trading.simulator import run_backtest, calculate_trading_metrics, simulate_market_shock
 from src.trading.risk import calculate_spread_risk, get_risk_summary
@@ -219,6 +219,19 @@ def main():
         st.session_state["active_date"] = active_date
         day_data = test_df[test_df["datetime"].dt.date == active_date].copy()
         
+    # EPİAŞ 12:30 Kapı Kapanışı Uyumlu Özyinelemeli (Recursive) Projeksiyon
+    if params.get("forecast_method") == "recursive":
+        history_prior = featured_df[featured_df["datetime"].dt.date < active_date]
+        if len(history_prior) >= 24:
+            try:
+                rec_df = predict_24h_recursive(model, history_prior, feature_cols)
+                if len(rec_df) == len(day_data):
+                    day_data["predicted_ptf"] = rec_df["predicted_ptf"].values
+                    day_data["lower_bound"] = rec_df["lower_bound"].values
+                    day_data["upper_bound"] = rec_df["upper_bound"].values
+            except Exception as e:
+                logging.getLogger(__name__).warning(f"Recursive projeksiyon hatası: {e}")
+        
     forecast_df = day_data[["datetime", "predicted_ptf", "lower_bound", "upper_bound"]].copy()
     forecast_summary = generate_forecast_summary(forecast_df)
     day_metrics = evaluate_model(day_data["ptf"].values, day_data["predicted_ptf"].values)
@@ -267,7 +280,7 @@ def main():
     elif current_page == "[02] 24S PTF FİYAT TAHMİNİ":
         render_kpi_cards(forecast_summary, day_metrics)
         render_html("<div style='height:8px;'></div>")
-        render_model_info(params["model_type"], model_metrics)
+        render_model_info(params["model_type"], model_metrics, params.get("forecast_method", "recursive"))
         
         render_html(get_section_header_html(
             "PTF Fiyat Projeksiyonu & Geçmiş Analizi",

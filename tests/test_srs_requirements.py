@@ -130,14 +130,23 @@ def test_fr03_and_nfr01_model_training_and_inference_speed(prepared_dataset):
     # CatBoost eğitimi
     model_cb = train_model(X_train, y_train, X_val, y_val, model_type="catboost", params={"iterations": 300, "verbose": 0})
     
-    # 24 Saatlik Çıkarım Hızı (NFR-01: < 500ms)
+    # 24 Saatlik Çıkarım Hızı (NFR-01: < 500ms) - Direct Yöntem
     t0 = time.time()
-    f24 = predict_24h(model_cb, feat_df, feature_cols)
+    f24 = predict_24h(model_cb, feat_df, feature_cols, method="direct")
     t_infer_24 = (time.time() - t0) * 1000
     
     assert t_infer_24 < 500, f"Hata: NFR-01 aşıldı! Süre: {t_infer_24:.2f}ms"
     assert len(f24) == 24, "Hata: 24 saatlik tahmin 24 satır değil!"
     assert "predicted_ptf" in f24.columns, "Hata: predicted_ptf sütunu eksik!"
+    
+    # EPİAŞ 12:30 Kapı Kapanışı Uyumlu Recursive (Özyinelemeli) Çıkarım Testi
+    t0_rec = time.time()
+    f24_rec = predict_24h(model_cb, feat_df, feature_cols, method="recursive")
+    t_infer_rec = (time.time() - t0_rec) * 1000
+    
+    assert t_infer_rec < 500, f"Hata: Recursive NFR-01 aşıldı! Süre: {t_infer_rec:.2f}ms"
+    assert len(f24_rec) == 24, "Hata: Recursive 24 saatlik tahmin 24 satır değil!"
+    assert "predicted_ptf" in f24_rec.columns, "Hata: Recursive predicted_ptf sütunu eksik!"
 
 
 def test_fr04_model_performance_criteria(prepared_dataset):
