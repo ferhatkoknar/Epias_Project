@@ -7,6 +7,7 @@ Yapay zeka modelleri (CatBoost, LightGBM ve hibrit Ensemble) ile Gün Öncesi Pi
 ## Temel Yetenekler
 
 - **Çoklu Model Tahmin Motoru:** CatBoost, LightGBM ve ağırlıklı Ensemble (%50 CB + %50 LGB) ile 24 saatlik saatlik nokta tahmin ve %90 güven aralığı.
+- **EPİAŞ 12:30 Kapı Kapanışı Uyumlu Özyinelemeli (Recursive Rollout) Çıkarım:** Gün Öncesi Piyasası'nda henüz gerçekleşmemiş gelecek saatlerin lag_1h, lag_2h ve yuvarlanan pencerelerini modelin kendi adım adım tahminleriyle güncelleyen, sıfır gelecek sızıntılı (%100 causal) ve piyasa gerçekliğine tam uyumlu tahminleme mimarisi.
 - **Bloomberg / Refinitiv Standartlarında Terminal Arayüzü:** Koyu tema (`#080c14`), Inter ve JetBrains Mono tipografisi, kurumsal finansal durum rozetleri, kesin sıfır emoji standardı.
 - **Canlı Seans & Piyasa İzleme:** TSI gerçek zamanlı seans sayacı, GÖP teklif/çözüm akışı, Taban/Puant kontrat fiyatları ve sistem dengesizlik yönü (Enerji Açığı/Fazlası).
 - **Model Kıyaslama Laboratuvarı:** Modellerin yan yana metrik matrisi (MAPE, RMSE, MAE, R², Yön Doğruluğu, Çıkarım Gecikmesi).
