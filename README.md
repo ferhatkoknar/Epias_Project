@@ -93,9 +93,9 @@ python tests/test_srs_requirements.py
 
 | Gereksinim Kodu | Metrik / Kriter | SRS Hedefi | Model / Terminal Başarımı | Durum |
 |---|---|---|---|---|
-| FR-03 / NFR-01 | 24 Saatlik Çıkarım Gecikmesi | < 500 ms | 0.23 ms | [KABUL] |
-| FR-04 | Ortalama Yüzde Sapma (MAPE) | < %12.0 | %0.42 - %1.55 (Ensemble: %0.97) | [KABUL] |
-| FR-04 | Yön Doğruluğu (Directional Acc.) | > %70.0 | %92.2 - %99.0 (Ensemble: %95.4) | [KABUL] |
-| FR-04 | Kök Ortalama Kare Hata (RMSE) | — | 38.8 - 55.8 TL (Ensemble: 43.6 TL) | [KABUL] |
+| FR-03 / NFR-01 | 24 Saatlik Çıkarım Gecikmesi | < 500 ms | 0.17 - 2.28 ms | [KABUL] |
+| FR-04 | Ortalama Yüzde Sapma (MAPE) | < %12.0 | %11.58 - %11.78 (Ensemble: %11.58) | [KABUL] |
+| FR-04 | Yön Doğruluğu (Directional Acc.) | > %70.0 | %70.65 - %71.91 (Ensemble: %71.49) | [KABUL] |
+| FR-04 | Kök Ortalama Kare Hata (RMSE) | — | 272.7 - 275.5 TL (Ensemble: 272.7 TL) | [KABUL] |
 | FR-06 | Dışa Aktarma Formatları | HTML, DOCX, XLSX, CSV | Tam Destekli | [KABUL] |
 | NFR-03 | Arayüz Tasarımı & Estetik | Bloomberg Terminal Standartları | Sıfır Emoji, Kurumsal Koyu Tema | [KABUL] |
