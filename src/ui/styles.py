@@ -443,25 +443,42 @@ def get_ticker_bar_html(
     """
     Bloomberg/Refinitiv tarzı üst piyasa bilgi ve seans bantı.
     """
-    dir_color = "#22c55e" if "FAZLASI" in system_direction else "#f59e0b" if "DENGE" in system_direction else "#ef4444"
-    dot_color = "#22c55e" if is_live else "#38bdf8"
-    ptf_label = "PTF GÜNCEL" if is_live else f"PTF ({selected_hour_str})"
+    import math
+    def fmt_tl(val):
+        if val is None or (isinstance(val, (int, float)) and math.isnan(val)):
+            return "NaN TL"
+        return f"{val:,.0f} TL"
+
+    def fmt_spread(val):
+        if val is None or (isinstance(val, (int, float)) and math.isnan(val)):
+            return "NaN TL"
+        return f"{val:+,.0f} TL"
+
+    dir_color = "#22c55e" if "FAZLASI" in system_direction else "#f59e0b" if ("DENGE" in system_direction or "BEKLE" in system_direction) else "#ef4444"
+    dot_color = "#22c55e" if is_live else "#f59e0b" if "ŞABLON" in mode_label else "#38bdf8"
+    ptf_label = "PTF GÜNCEL" if is_live else f"PTF ({selected_hour_str})" if selected_hour_str else "PTF"
     
+    last_ptf_str = fmt_tl(last_ptf)
+    base_load_str = fmt_tl(base_load)
+    peak_load_str = fmt_tl(peak_load)
+    spread_str = fmt_spread(spread_val)
+    spread_color = "#94a3b8" if (spread_val is None or (isinstance(spread_val, float) and math.isnan(spread_val))) else ('#22c55e' if spread_val >= 0 else '#ef4444')
+
     raw = f"""
     <div style="display: flex; align-items: center; justify-content: space-between; background: #0f141d; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 8px; padding: 8px 16px; margin-bottom: 18px; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: #9ca3af; gap: 12px; flex-wrap: wrap;">
         <div style="display: flex; align-items: center; gap: 8px;">
             <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: {dot_color}; box-shadow: 0 0 8px {dot_color};"></span>
-            <span style="color: {'#22c55e' if is_live else '#38bdf8'}; font-weight: 600;">{mode_label}</span>
+            <span style="color: {'#22c55e' if is_live else '#fbbf24' if 'ŞABLON' in mode_label else '#38bdf8'}; font-weight: 600;">{mode_label}</span>
             <span style="color: #64748b;">|</span>
             <span>TSI: <span style="color: #e2e8f0; font-weight: 600;">{tsi_time_str}</span></span>
             <span style="color: #64748b;">|</span>
             <span style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #60a5fa; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.68rem;">{session_name}</span>
         </div>
         <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-            <div>{ptf_label}: <span style="color: #f8fafc; font-weight: 600;">{last_ptf:,.0f} TL</span></div>
-            <div>BAZ YÜK: <span style="color: #cbd5e1;">{base_load:,.0f} TL</span></div>
-            <div>PUANT: <span style="color: #60a5fa; font-weight: 600;">{peak_load:,.0f} TL</span></div>
-            <div>SPREAD: <span style="color: {'#22c55e' if spread_val >= 0 else '#ef4444'};">{spread_val:+,.0f} TL</span></div>
+            <div>{ptf_label}: <span style="color: #f8fafc; font-weight: 600;">{last_ptf_str}</span></div>
+            <div>BAZ YÜK: <span style="color: #cbd5e1;">{base_load_str}</span></div>
+            <div>PUANT: <span style="color: #60a5fa; font-weight: 600;">{peak_load_str}</span></div>
+            <div>SPREAD: <span style="color: {spread_color};">{spread_str}</span></div>
             <div style="display: flex; align-items: center; gap: 6px;">
                 <span>SİSTEM:</span>
                 <span style="color: {dir_color}; font-weight: 600; background: rgba(255,255,255,0.03); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.06);">{system_direction}</span>

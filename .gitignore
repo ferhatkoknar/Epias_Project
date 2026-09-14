@@ -11,6 +11,8 @@ build/
 # Veri dosyaları (büyük, repo'ya eklenmemeli)
 data/raw/*.parquet
 data/raw/*.csv
+data/raw/*.xlsx
+*.xlsx
 data/processed/*.parquet
 data/processed/*.csv
 data/cache/*.parquet

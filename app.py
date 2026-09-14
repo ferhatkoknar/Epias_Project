@@ -176,78 +176,139 @@ def main():
     
     feature_cols = get_feature_columns(featured_df)
     
-    # Test verisi (son 30 gün = 720 saat)
-    test_size = 30 * 24
-    test_df = featured_df.iloc[-test_size:].copy()
+    # Gerçek veri var mı kontrolü (API'den veri gelmiş mi?)
+    has_real_data = (clean_df["ptf"].notna().sum() >= 48) and (len(clean_df) >= 48)
     
-    # Mevcut test tarihleri
-    test_dates = test_df["datetime"].dt.date.unique()
-    min_test_date = test_dates.min()
-    max_test_date = test_dates.max()
-    
-    # Sidebar
-    params = render_sidebar(
-        min_date=min_test_date,
-        max_date=max_test_date,
-        default_date=max_test_date,
-    )
-    
-    # Çoklu model paketini RAM önbelleğinden al
-    with st.spinner("Modeller optimize ediliyor..."):
-        model_suite = get_cached_model_suite(len(featured_df))
-    
-    selected_model_type = params["model_type"]
-    model, test_predictions, model_metrics, fi_df = model_suite[selected_model_type]
-    
-    # Tahminleri ve %90 güven aralığını ekle
-    test_df["predicted_ptf"] = test_predictions
-    test_df["lower_bound"] = test_predictions - 1.96 * model_metrics.get("rmse", 50)
-    test_df["upper_bound"] = test_predictions + 1.96 * model_metrics.get("rmse", 50)
-    
-    # Aktif gün seçimi
-    selected_date = params["target_date"]
-    if "active_date" not in st.session_state or st.session_state.get("prev_target_date") != selected_date:
-        st.session_state["active_date"] = selected_date
-        st.session_state["prev_target_date"] = selected_date
+    if has_real_data:
+        test_size = 30 * 24 if len(featured_df) >= 60 * 24 else max(24, int(len(featured_df) * 0.2))
+        test_df = featured_df.iloc[-test_size:].copy()
+        test_dates = test_df["datetime"].dt.date.unique()
+        min_test_date = test_dates.min()
+        max_test_date = test_dates.max()
         
-    active_date = st.session_state["active_date"]
-    day_mask = test_df["datetime"].dt.date == active_date
-    day_data = test_df[day_mask].copy()
-    
-    if len(day_data) == 0:
-        active_date = max_test_date
-        st.session_state["active_date"] = active_date
-        day_data = test_df[test_df["datetime"].dt.date == active_date].copy()
+        params = render_sidebar(
+            min_date=min_test_date,
+            max_date=max_test_date,
+            default_date=max_test_date,
+        )
         
-    # EPİAŞ 12:30 Kapı Kapanışı Uyumlu Özyinelemeli (Recursive) Projeksiyon
-    if params.get("forecast_method") == "recursive":
-        history_prior = featured_df[featured_df["datetime"].dt.date < active_date]
-        if len(history_prior) >= 24:
-            try:
-                rec_df = predict_24h_recursive(model, history_prior, feature_cols)
-                if len(rec_df) == len(day_data):
-                    day_data["predicted_ptf"] = rec_df["predicted_ptf"].values
-                    day_data["lower_bound"] = rec_df["lower_bound"].values
-                    day_data["upper_bound"] = rec_df["upper_bound"].values
-            except Exception as e:
-                logging.getLogger(__name__).warning(f"Recursive projeksiyon hatası: {e}")
+        with st.spinner("Modeller optimize ediliyor..."):
+            model_suite = get_cached_model_suite(len(featured_df))
         
-    forecast_df = day_data[["datetime", "predicted_ptf", "lower_bound", "upper_bound"]].copy()
-    forecast_summary = generate_forecast_summary(forecast_df)
-    day_metrics = evaluate_model(day_data["ptf"].values, day_data["predicted_ptf"].values)
-    
-    # Backtest hesaplaması
-    backtest_df = run_backtest(
-        actual_ptf=test_df["ptf"].values,
-        predicted_ptf=test_predictions,
-        datetimes=test_df["datetime"],
-        threshold_tl=params["threshold_tl"],
-        position_mwh=params["position_mwh"],
-        commission_rate=0.001,
-        strategy=params["strategy"],
-        risk_coefficient=params["risk_coefficient"],
-    )
-    trading_metrics = calculate_trading_metrics(backtest_df)
+        selected_model_type = params["model_type"]
+        model, test_predictions, model_metrics, fi_df = model_suite[selected_model_type]
+        
+        test_df["predicted_ptf"] = test_predictions
+        test_df["lower_bound"] = test_predictions - 1.96 * model_metrics.get("rmse", 50)
+        test_df["upper_bound"] = test_predictions + 1.96 * model_metrics.get("rmse", 50)
+        
+        selected_date = params["target_date"]
+        if "active_date" not in st.session_state or st.session_state.get("prev_target_date") != selected_date:
+            st.session_state["active_date"] = selected_date
+            st.session_state["prev_target_date"] = selected_date
+            
+        active_date = st.session_state["active_date"]
+        day_mask = test_df["datetime"].dt.date == active_date
+        day_data = test_df[day_mask].copy()
+        
+        if len(day_data) == 0:
+            active_date = max_test_date
+            st.session_state["active_date"] = active_date
+            day_data = test_df[test_df["datetime"].dt.date == active_date].copy()
+            
+        if params.get("forecast_method") == "recursive":
+            history_prior = featured_df[featured_df["datetime"].dt.date < active_date]
+            if len(history_prior) >= 24:
+                try:
+                    rec_df = predict_24h_recursive(model, history_prior, feature_cols)
+                    if len(rec_df) == len(day_data):
+                        day_data["predicted_ptf"] = rec_df["predicted_ptf"].values
+                        day_data["lower_bound"] = rec_df["lower_bound"].values
+                        day_data["upper_bound"] = rec_df["upper_bound"].values
+                except Exception as e:
+                    logging.getLogger(__name__).warning(f"Recursive projeksiyon hatası: {e}")
+            
+        forecast_df = day_data[["datetime", "predicted_ptf", "lower_bound", "upper_bound"]].copy()
+        forecast_summary = generate_forecast_summary(forecast_df)
+        day_metrics = evaluate_model(day_data["ptf"].values, day_data["predicted_ptf"].values)
+        
+        backtest_df = run_backtest(
+            actual_ptf=test_df["ptf"].values,
+            predicted_ptf=test_predictions,
+            datetimes=test_df["datetime"],
+            threshold_tl=params["threshold_tl"],
+            position_mwh=params["position_mwh"],
+            commission_rate=0.001,
+            strategy=params["strategy"],
+            risk_coefficient=params["risk_coefficient"],
+        )
+        trading_metrics = calculate_trading_metrics(backtest_df)
+    else:
+        # ─── ŞABLON MODU: EPİAŞ Canlı API Verisi Bekleniyor ───
+        today = datetime.now().date()
+        min_test_date = today
+        max_test_date = today
+        test_dates = [today]
+        active_date = today
+        
+        params = render_sidebar(
+            min_date=min_test_date,
+            max_date=max_test_date,
+            default_date=max_test_date,
+        )
+        
+        render_html("""
+        <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 12px 18px; margin-bottom: 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: #cbd5e1; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; box-shadow: 0 0 8px #f59e0b;"></span>
+                <span style="color: #fbbf24; font-weight: 600;">[SİSTEM ŞABLON MODUNDA — EPİAŞ APİ BEKLENİYOR]</span>
+                <span style="color: #64748b;">|</span>
+                <span style="color: #94a3b8;">Canlı verileri çekmek ve modelleri eğitmek için .env dosyasına EPTR_USERNAME ve EPTR_PASSWORD giriniz.</span>
+            </div>
+            <span style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: #fbbf24; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">ŞABLON AKTİF</span>
+        </div>
+        """)
+        
+        test_df = featured_df.copy()
+        test_df["predicted_ptf"] = np.nan
+        test_df["lower_bound"] = np.nan
+        test_df["upper_bound"] = np.nan
+        day_data = test_df.copy()
+        
+        forecast_df = day_data[["datetime", "predicted_ptf", "lower_bound", "upper_bound"]].copy()
+        forecast_summary = {
+            "mean": np.nan,
+            "min": np.nan,
+            "max": np.nan,
+            "volatility": np.nan,
+            "peak_mean": np.nan,
+        }
+        model_metrics = {
+            "mape": np.nan,
+            "dir_acc": np.nan,
+            "rmse": np.nan,
+            "r2": np.nan,
+            "train_time_s": np.nan,
+            "infer_time_24h_ms": np.nan,
+        }
+        day_metrics = model_metrics.copy()
+        trading_metrics = {
+            "total_pnl": 0.0,
+            "sharpe_ratio": np.nan,
+            "win_rate": np.nan,
+            "max_drawdown": 0.0,
+            "total_trades": 0,
+        }
+        backtest_df = pd.DataFrame({
+            "datetime": test_df["datetime"],
+            "actual_ptf": np.nan,
+            "predicted_ptf": np.nan,
+            "signal": "BEKLEMEDE",
+            "position": 0.0,
+            "hourly_pnl": 0.0,
+            "cumulative_pnl": 0.0,
+        })
+        fi_df = pd.DataFrame({"feature": feature_cols[:10], "importance": np.nan})
     
     # ─── Sol Panel Dışa Aktarma & Rapor Merkezi (1-Tıkla İndirme) ───
     render_sidebar_export_section(

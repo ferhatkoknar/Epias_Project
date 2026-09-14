@@ -216,41 +216,33 @@ def render_sidebar_export_section(
 
 def render_kpi_cards(summary: dict, model_metrics: dict = None):
     """Üst KPI kartları — sade, monospace değerler."""
+    import numpy as np
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        avg_ptf = summary.get("avg_ptf", 0)
-        st.metric(
-            label="ORT. PTF (TL/MWh)",
-            value=f"{avg_ptf:,.0f}",
-            delta=f"{summary.get('trend_pct', 0):+.1f}%",
-        )
+        avg_ptf = summary.get("avg_ptf", np.nan)
+        val_str = f"{avg_ptf:,.0f} TL" if pd.notna(avg_ptf) else "NaN TL"
+        trend_pct = summary.get('trend_pct', np.nan)
+        delta_str = f"{trend_pct:+.1f}%" if pd.notna(trend_pct) else "—"
+        st.metric(label="ORT. PTF (TL/MWh)", value=val_str, delta=delta_str)
     
     with col2:
-        mape = model_metrics.get("mape", 0) if model_metrics else 0
-        status = "< %12 hedefi" if mape < 12 else "hedef aşımı"
-        st.metric(
-            label="MODEL MAPE",
-            value=f"%{mape:.1f}",
-            delta=status,
-        )
+        mape = model_metrics.get("mape", np.nan) if model_metrics else np.nan
+        mape_str = f"%{mape:.1f}" if pd.notna(mape) else "NaN"
+        status = "< %12 hedefi" if (pd.notna(mape) and mape < 12) else "hedef aşımı" if pd.notna(mape) else "[BEKLEMEDE]"
+        st.metric(label="MODEL MAPE", value=mape_str, delta=status)
     
     with col3:
         trend = summary.get("trend", "—")
-        st.metric(
-            label="24 SAATLİK TREND",
-            value=trend,
-            delta=f"Aralık: {summary.get('spread_range', 0):,.0f} TL",
-        )
+        spread_range = summary.get('spread_range', np.nan)
+        delta_range = f"Aralık: {spread_range:,.0f} TL" if pd.notna(spread_range) else "Aralık: NaN TL"
+        st.metric(label="24 SAATLİK TREND", value=trend if pd.notna(trend) else "NaN", delta=delta_range)
     
     with col4:
-        da = model_metrics.get("directional_accuracy", 0) if model_metrics else 0
-        status = "hedefte" if da > 70 else "geliştirilmeli"
-        st.metric(
-            label="YÖN DOĞRULUĞU",
-            value=f"%{da:.1f}",
-            delta=status,
-        )
+        da = model_metrics.get("directional_accuracy", np.nan) or model_metrics.get("dir_acc", np.nan) if model_metrics else np.nan
+        da_str = f"%{da:.1f}" if pd.notna(da) else "NaN"
+        status = "hedefte" if (pd.notna(da) and da > 70) else "geliştirilmeli" if pd.notna(da) else "[BEKLEMEDE]"
+        st.metric(label="YÖN DOĞRULUĞU", value=da_str, delta=status)
 
 
 def render_model_info(model_type: str, metrics: dict, forecast_method: str = "recursive"):
@@ -369,44 +361,55 @@ def render_market_ticker_bar(df_day: pd.DataFrame, model_metrics: dict = None):
     else:
         session_name = "GİP & DENGELEME PİYASASI"
         
-    # Güncel saat verisi (varsa o saat, yoksa son satır)
-    cur_hour_mask = df_day["datetime"].dt.hour == hour if len(df_day) > 0 else []
-    if len(df_day) > 0 and any(cur_hour_mask):
-        last_ptf = float(df_day[cur_hour_mask]["ptf"].iloc[0])
-        last_smf = float(df_day[cur_hour_mask]["smf"].iloc[0]) if "smf" in df_day.columns else last_ptf - 68.0
-    else:
-        last_ptf = float(df_day["ptf"].iloc[-1]) if len(df_day) > 0 else 2850.0
-        last_smf = float(df_day["smf"].iloc[-1]) if ("smf" in df_day.columns and len(df_day) > 0) else last_ptf - 68.0
-        
-    base_load = float(df_day["ptf"].mean()) if len(df_day) > 0 else 2750.0
+    # Veri setinin boş/NaN şablon modu kontrolü
+    is_empty_or_nan = len(df_day) == 0 or df_day["ptf"].isna().all()
     
-    if "hour" in df_day.columns:
-        peak_mask = (df_day["hour"] >= 8) & (df_day["hour"] <= 20)
+    if is_empty_or_nan:
+        last_ptf = np.nan
+        last_smf = np.nan
+        base_load = np.nan
+        peak_load = np.nan
+        spread_val = np.nan
+        sys_dir = "BEKLEMEDE"
+        mode_label = "[ŞABLON MODU / APİ BEKLENİYOR]"
+        is_live = False
+        selected_hour_str = ""
     else:
-        peak_mask = (df_day["datetime"].dt.hour >= 8) & (df_day["datetime"].dt.hour <= 20)
+        cur_hour_mask = df_day["datetime"].dt.hour == hour
+        if any(cur_hour_mask):
+            last_ptf = float(df_day[cur_hour_mask]["ptf"].iloc[0])
+            last_smf = float(df_day[cur_hour_mask]["smf"].iloc[0]) if "smf" in df_day.columns and pd.notna(df_day[cur_hour_mask]["smf"].iloc[0]) else last_ptf - 68.0
+        else:
+            last_ptf = float(df_day["ptf"].iloc[-1])
+            last_smf = float(df_day["smf"].iloc[-1]) if ("smf" in df_day.columns and pd.notna(df_day["smf"].iloc[-1])) else last_ptf - 68.0
+            
+        base_load = float(df_day["ptf"].mean())
         
-    peak_df = df_day[peak_mask]
-    peak_load = float(peak_df["ptf"].mean()) if len(peak_df) > 0 else base_load * 1.15
-    
-    spread_val = last_ptf - last_smf
-    if spread_val > 50:
-        sys_dir = "ENERJİ FAZLASI (PTF > SMF)"
-    elif spread_val < -50:
-        sys_dir = "ENERJİ AÇIĞI (PTF < SMF)"
-    else:
-        sys_dir = "DENGEDE"
+        if "hour" in df_day.columns:
+            peak_mask = (df_day["hour"] >= 8) & (df_day["hour"] <= 20)
+        else:
+            peak_mask = (df_day["datetime"].dt.hour >= 8) & (df_day["datetime"].dt.hour <= 20)
+            
+        peak_df = df_day[peak_mask]
+        peak_load = float(peak_df["ptf"].mean()) if len(peak_df) > 0 else base_load * 1.15
         
-    # Veri setinin tarihi bugün mü kontrolü (Canlı API vs Tarihsel Veri)
-    today_date = now.date()
-    df_date = df_day["datetime"].dt.date.iloc[0] if len(df_day) > 0 else today_date
-    is_live = (df_date == today_date)
-    
-    if is_live:
-        mode_label = "CANLI PIYASA"
-    else:
-        mode_label = f"TARİHSEL SİMÜLASYON [{df_date.strftime('%d.%m.%Y')}]"
-        
-    selected_hour_str = f"{hour:02d}:00"
+        spread_val = last_ptf - last_smf
+        if spread_val > 50:
+            sys_dir = "ENERJİ FAZLASI (PTF > SMF)"
+        elif spread_val < -50:
+            sys_dir = "ENERJİ AÇIĞI (PTF < SMF)"
+        else:
+            sys_dir = "DENGEDE"
+            
+        today_date = now.date()
+        df_date = df_day["datetime"].dt.date.iloc[0]
+        is_live = (df_date == today_date)
+        if is_live:
+            mode_label = "CANLI PIYASA"
+        else:
+            mode_label = f"TARİHSEL SİMÜLASYON [{df_date.strftime('%d.%m.%Y')}]"
+            
+        selected_hour_str = f"{hour:02d}:00"
     
     from src.ui.styles import get_ticker_bar_html, render_html
     render_html(get_ticker_bar_html(
