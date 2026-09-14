@@ -1,31 +1,59 @@
 # EPİAŞ GÖP PTF Fiyat Tahmini & Enerji Trading Terminali
 
-Yapay zeka (CatBoost, LightGBM ve Ensemble) tabanlı 24 saatlik Piyasa Takas Fiyatı (PTF) tahminleme, sistem marjinal spread risk analizi ve algoritmik trading karar destek platformu.
+Yapay zeka modelleri (CatBoost, LightGBM ve hibrit Ensemble) ile Gün Öncesi Piyasası (GÖP) Piyasa Takas Fiyatı (PTF) tahminleme, Sistem Marjinal Fiyatı (SMF) ve dengesizlik spread analizi, algoritmik trading simülasyonu ve kurumsal raporlama platformu.
 
 ---
 
-## Öne Çıkan Yetenekler
+## Temel Yetenekler
 
-- **Çoklu Model Tahmin Motoru:** CatBoost, LightGBM ve ağırlıklı Ensemble (%50 CB + %50 LGB) modelleri ile saatlik nokta tahmin ve %90 güven aralığı.
-- **Bloomberg Seviyesinde Terminal UI:** Sıfır emoji kuralı, kurumsal koyu tema, modern Inter ve JetBrains Mono tipografisi.
-- **Canlı Seans & Piyasa Ticker Bantı:** TSI gerçek zamanlı saat, GÖP teklif/çözüm seans durumları, Taban/Puant kontrat fiyatları ve Sistem Yönü (Enerji Açığı/Fazlası).
+- **Çoklu Model Tahmin Motoru:** CatBoost, LightGBM ve ağırlıklı Ensemble (%50 CB + %50 LGB) ile 24 saatlik saatlik nokta tahmin ve %90 güven aralığı.
+- **Bloomberg / Refinitiv Standartlarında Terminal Arayüzü:** Koyu tema (`#080c14`), Inter ve JetBrains Mono tipografisi, kurumsal finansal durum rozetleri, kesin sıfır emoji standardı.
+- **Canlı Seans & Piyasa İzleme:** TSI gerçek zamanlı seans sayacı, GÖP teklif/çözüm akışı, Taban/Puant kontrat fiyatları ve sistem dengesizlik yönü (Enerji Açığı/Fazlası).
 - **Model Kıyaslama Laboratuvarı:** Modellerin yan yana metrik matrisi (MAPE, RMSE, MAE, R², Yön Doğruluğu, Çıkarım Gecikmesi).
-- **Algoritmik Trading & Stres Testi:** Eşik bazlı sanal arbitraj P&L simülatörü, Sharpe rasyosu, max drawdown ve doğal gaz/yenilenebilir şok senaryoları.
-- **Saatlik Yoğunluk Isı Haritası (Heatmap):** 24 Saat x 7 Gün ekseninde elektrik fiyatlarının haftalık ve günlük formasyon dökümü.
+- **Algoritmik Trading & Stres Testi:** Eşik bazlı arbitraj stratejisi, dinamik Stop-Loss (%5) / Take-Profit (%10), Maksimum Drawdown koruması (%15), Sharpe rasyosu ve doğal gaz/yenilenebilir arz şok senaryoları.
+- **Saatlik Yoğunluk Isı Haritası (Heatmap):** 24 Saat x 7 Gün ekseninde elektrik fiyat formasyonu ve puant saat dağılımları.
+- **Kurumsal Raporlama & Dışa Aktarma:**
+  - HTML Yönetici Özeti (çift tıklamayla açılır, gömülü kurumsal stil, tek tıkla PDF çıktı alma).
+  - Microsoft Word Raporu (`.docx`) ile biçimlendirilmiş kurumsal dökümantasyon.
+  - Çok Sekmeli Excel Tablosu (`.xlsx`) (Fiyat Tahminleri, Model Metrikleri, Portföy ve İşlem Defteri).
+  - Standartlaştırılmış CSV (`utf-8-sig` Türkçe karakter uyumlu).
+- **Kimlik Doğrulama & Oturum Yönetimi:** Güvenli oturum açma, oturum durumu takibi ve kurumsal kilit ekranı.
+
+---
+
+## Git Dal (Branch) Mimarisi
+
+Projede iki temel dal bulunmaktadır:
+- **`main`:** Doğrudan erişim sağlayan açık demo sürümü.
+- **`feature/terminal-auth`:** Kurumsal kimlik doğrulama kilit ekranına sahip sürüm (Varsayılan erişim anahtarları: `epias2026`, `admin2026`, `trader2026`).
 
 ---
 
 ## Kurulum ve Çalıştırma
 
-```bash
-# Bağımlılıkları yükle
-pip install -r requirements.txt
+### 1. Sistem Gereksinimleri
+- Python 3.10 veya üzeri
+- Git
 
-# Terminali başlat
+### 2. Depoyu Klonlama ve Bağımlılıkları Yükleme
+```bash
+git clone https://github.com/FerhatKoknar/Epias_Project.git
+cd Epias_Project
+pip install -r requirements.txt
+```
+
+### 3. Model Eğitimi (Opsiyonel)
+Önceden eğitilmiş model ağırlıkları `models/` dizininde hazır olarak bulunmaktadır. Modelleri sıfırdan eğitmek için:
+```bash
+python -m src.models.trainer
+```
+
+### 4. Terminali Başlatma
+```bash
 streamlit run app.py
 ```
 
-Uygulama tarayıcınızda `http://localhost:8501` adresinde açılacaktır.
+Uygulama yerel tarayıcınızda varsayılan olarak `http://localhost:8501` adresinde çalışacaktır.
 
 ---
 
@@ -34,37 +62,39 @@ Uygulama tarayıcınızda `http://localhost:8501` adresinde açılacaktır.
 ```
 Epias_Project/
 ├── app.py                         # Ana Streamlit terminal uygulaması
-├── requirements.txt               # Proje bağımlılıkları
-├── CHANGELOG.md                   # Sürüm ve değişiklik kütüğü
-├── .streamlit/config.toml         # Koyu tema ve performans konfigürasyonu
+├── requirements.txt               # Proje Python bağımlılıkları
+├── EPIAS_PTF_SRS.docx             # Yazılım Gereksinim Belirtimi (SRS)
+├── .streamlit/
+│   └── config.toml                # Terminal koyu tema ve sunucu konfigürasyonu
+├── assets/                        # Görsel ve arayüz varlıkları (kilit ekranı vb.)
 ├── config/
-│   ├── __init__.py
-│   └── settings.py                # Piyasa seans ve terminal sabitleri
-├── data/                          # Veri dizinleri (raw, processed, cache)
-├── models/                        # Eğitilmiş model dosyaları (.joblib)
+│   └── settings.py                # Piyasa parametreleri, seans saatleri ve sabitler
+├── data/                          # Ham ve işlenmiş veri önbellekleri
+├── models/                        # Eğitilmiş model ikili dosyaları (.joblib)
 ├── src/
-│   ├── data/                      # ETL: Veri çekme (fetcher), temizleme, önbellek
-│   ├── features/                  # Zaman ve piyasa öznitelik mühendisliği
-│   ├── models/                    # CatBoost, LightGBM, Ensemble, tahmin ve değerlendirme
-│   ├── trading/                   # P&L simülasyonu, risk radarı, stres testi
-│   └── ui/                        # Stillendirme (styles), bileşenler, grafikler, CSV export
+│   ├── data/                      # EPİAŞ veri çekme, temizleme ve önbellek yönetimi
+│   ├── features/                  # Zaman, takvim ve piyasa öznitelik mühendisliği
+│   ├── models/                    # Model mimarileri, eğitim, tahmin ve doğrulama
+│   ├── trading/                   # Arbitraj simülasyonu, risk radarı ve stres testi
+│   └── ui/                        # Stillendirme, bileşenler, grafikler, kimlik doğrulama ve dışa aktarma
 └── tests/
-    └── test_srs_requirements.py   # FR-01'den FR-08'e otomatik doğrulama testi
+    └── test_srs_requirements.py   # Otomatik SRS gereksinimleri doğrulama paketi
 ```
 
 ---
 
 ## Doğrulama ve Kabul Kriterleri (SRS)
 
-Test paketini çalıştırmak için:
+Otomatik doğrulama test paketini çalıştırmak için:
 ```bash
 python tests/test_srs_requirements.py
 ```
 
-| Gereksinim | Metrik / Kriter | SRS Hedefi | Terminal Başarımı | Durum |
+| Gereksinim Kodu | Metrik / Kriter | SRS Hedefi | Model / Terminal Başarımı | Durum |
 |---|---|---|---|---|
 | FR-03 / NFR-01 | 24 Saatlik Çıkarım Gecikmesi | < 500 ms | ~4.5 ms | [KABUL] |
-| FR-04 | Ortalama Yüzde Sapma (MAPE) | < %12.0 | %0.22 - %0.42 | [KABUL] |
+| FR-04 | Ortalama Yüzde Sapma (MAPE) | < %12.0 | %0.22 - %0.44 | [KABUL] |
 | FR-04 | Yön Doğruluğu (Directional Acc.) | > %70.0 | %98.3 - %99.4 | [KABUL] |
-| FR-04 | Belirleme Katsayısı (R²) | — | > 0.998 | [KABUL] |
-| NFR-03 | Arayüz Tasarımı & Estetik | Koyu Tema / Bloomberg Terminali | Sıfır Emoji, Kurumsal | [KABUL] |
+| FR-04 | Belirleme Katsayısı (R²) | > 0.85 | > 0.998 | [KABUL] |
+| FR-06 | Dışa Aktarma Formatları | HTML, DOCX, XLSX, CSV | Tam Destekli | [KABUL] |
+| NFR-03 | Arayüz Tasarımı & Estetik | Bloomberg Terminal Standartları | Sıfır Emoji, Kurumsal Koyu Tema | [KABUL] |
