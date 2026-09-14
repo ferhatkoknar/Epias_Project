@@ -205,7 +205,7 @@ def test_fr08_export_reports_and_data(prepared_dataset):
     test_day = test_df.tail(24).copy()
     test_day["predicted_ptf"] = y_test[-24:] * 1.01
     
-    metrics = {"mape": 4.77, "rmse": 152.2, "mae": 109.5, "r2": 0.62, "directional_accuracy": 76.6}
+    metrics = {"mape": 14.63, "wape": 10.07, "rmse": 387.45, "mae": 292.41, "r2": 0.42, "directional_accuracy": 76.50, "infer_time_24h_ms": 0.83}
     trading_metrics = {"total_pnl": 450000.0, "win_rate": 65.0, "max_drawdown_pct": -3.5, "max_drawdown_tl": -15000.0, "sharpe_ratio": 1.8}
     
     # 1. CSV

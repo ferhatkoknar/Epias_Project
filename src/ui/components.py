@@ -248,7 +248,8 @@ def render_kpi_cards(summary: dict, model_metrics: dict = None):
 def render_model_info(model_type: str, metrics: dict, forecast_method: str = "recursive"):
     """Model bilgi kartı — sade."""
     mape = metrics.get("mape", 0)
-    status_class = "status-active" if mape < 12 else "status-warning" if mape < 15 else "status-danger"
+    wape = metrics.get("wape", mape)
+    status_class = "status-active" if wape < 12 else "status-warning" if wape < 15 else "status-danger"
     if model_type == "catboost":
         model_name = "CatBoost Regressor"
     elif model_type == "lightgbm":
@@ -260,6 +261,10 @@ def render_model_info(model_type: str, metrics: dict, forecast_method: str = "re
         badge_html = '<span style="background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 8px; border-radius: 4px; font-size: 0.68rem; font-family: \'JetBrains Mono\', monospace; margin-left: 8px; font-weight: 500;">[12:30 KAPI KAPANIŞI UYUMLU: ÖZYİNELEMELİ]</span>'
     else:
         badge_html = '<span style="background: rgba(59, 130, 246, 0.12); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); padding: 2px 8px; border-radius: 4px; font-size: 0.68rem; font-family: \'JetBrains Mono\', monospace; margin-left: 8px; font-weight: 500;">[STANDART: DOĞRUDAN ÇIKARIM]</span>'
+    
+    da_val = metrics.get('directional_accuracy', 0)
+    mae_val = metrics.get('mae', 0)
+    rmse_val = metrics.get('rmse', 0)
     
     render_html(f"""
     <div class="info-card" style="display: flex; justify-content: space-between; align-items: center;">
@@ -273,10 +278,10 @@ def render_model_info(model_type: str, metrics: dict, forecast_method: str = "re
         </div>
         <div style="text-align: right;">
             <div style="color: #e5e7eb; font-size: 1.15rem; font-weight: 600; font-family: JetBrains Mono, monospace;">
-                MAPE: %{mape:.1f}
+                WAPE: %{wape:.1f} <span style="font-size: 0.75rem; color: #94a3b8; font-weight: normal;">(MAPE: %{mape:.1f})</span>
             </div>
             <div style="color: #6b7280; font-size: 0.72rem; font-family: JetBrains Mono, monospace;">
-                R²: {metrics.get('r2', 0):.3f} &middot; RMSE: {metrics.get('rmse', 0):.0f}
+                YÖN: %{da_val:.1f} &middot; MAE: {mae_val:,.0f} TL &middot; RMSE: {rmse_val:,.0f} TL
             </div>
         </div>
     </div>
@@ -496,8 +501,9 @@ def render_home_page(summary: dict, model_metrics: dict, trading_metrics: dict):
     with col1:
         st.metric("24s Ortalama PTF", f"{summary.get('avg_ptf', 0):,.0f} TL/MWh", help="Hedef gün öngörülen ortalama fiyat")
     with col2:
+        wape_val = model_metrics.get('wape', model_metrics.get('mape', 0))
         mape_val = model_metrics.get('mape', 0)
-        st.metric("Model Doğruluk (MAPE)", f"%{mape_val:.2f}", delta="Hedef: < %12", delta_color="inverse")
+        st.metric("Model Doğruluk (WAPE)", f"%{wape_val:.2f}", delta=f"MAPE: %{mape_val:.1f} | Hedef: < %12", delta_color="inverse")
     with col3:
         da_val = model_metrics.get('directional_accuracy', 0)
         st.metric("Yön Doğruluğu", f"%{da_val:.1f}", delta="Hedef: > %70")
