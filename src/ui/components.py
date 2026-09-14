@@ -369,7 +369,15 @@ def render_market_ticker_bar(df_day: pd.DataFrame, model_metrics: dict = None):
     else:
         session_name = "GİP & DENGELEME PİYASASI"
         
-    last_ptf = float(df_day["ptf"].iloc[-1]) if len(df_day) > 0 else 2850.0
+    # Güncel saat verisi (varsa o saat, yoksa son satır)
+    cur_hour_mask = df_day["datetime"].dt.hour == hour if len(df_day) > 0 else []
+    if len(df_day) > 0 and any(cur_hour_mask):
+        last_ptf = float(df_day[cur_hour_mask]["ptf"].iloc[0])
+        last_smf = float(df_day[cur_hour_mask]["smf"].iloc[0]) if "smf" in df_day.columns else last_ptf - 68.0
+    else:
+        last_ptf = float(df_day["ptf"].iloc[-1]) if len(df_day) > 0 else 2850.0
+        last_smf = float(df_day["smf"].iloc[-1]) if ("smf" in df_day.columns and len(df_day) > 0) else last_ptf - 68.0
+        
     base_load = float(df_day["ptf"].mean()) if len(df_day) > 0 else 2750.0
     
     if "hour" in df_day.columns:
@@ -380,9 +388,7 @@ def render_market_ticker_bar(df_day: pd.DataFrame, model_metrics: dict = None):
     peak_df = df_day[peak_mask]
     peak_load = float(peak_df["ptf"].mean()) if len(peak_df) > 0 else base_load * 1.15
     
-    if "smf" in df_day.columns and len(df_day) > 0:
-        last_smf = float(df_day["smf"].iloc[-1])
-        spread_val = last_ptf - last_smf
+    spread_val = last_ptf - last_smf
         if spread_val > 50:
             sys_dir = "ENERJİ FAZLASI (PTF > SMF)"
         elif spread_val < -50:
