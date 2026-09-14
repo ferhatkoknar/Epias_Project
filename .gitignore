@@ -14,11 +14,16 @@ data/raw/*.csv
 data/processed/*.parquet
 data/processed/*.csv
 data/cache/*.parquet
+!data/cache/ptf_latest.parquet
+!data/cache/smf_latest.parquet
 
 # Eğitilmiş modeller
 models/*.joblib
 models/*.pkl
 models/*.cbm
+!models/catboost_model.joblib
+!models/lightgbm_model.joblib
+!models/ensemble_model.joblib
 
 # IDE
 .vscode/

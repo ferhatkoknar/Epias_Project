@@ -5,10 +5,14 @@ CatBoost ve LightGBM modellerini Walk-Forward validasyonla eğitir.
 
 import logging
 import time
+import warnings
 from pathlib import Path
 import numpy as np
 import pandas as pd
 import joblib
+
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", message=".*eval_set.*")
 
 logger = logging.getLogger(__name__)
 
@@ -136,12 +140,15 @@ def _train_lightgbm(X_train, y_train, X_val, y_val, params):
     
     callbacks = [lgb.log_evaluation(100)]
     if X_val is not None and y_val is not None:
-        callbacks.append(lgb.early_stopping(early_stopping))
-        model.fit(
-            X_train, y_train,
-            eval_set=[(X_val, y_val)],
-            callbacks=callbacks,
-        )
+        callbacks.append(lgb.early_stopping(early_stopping, verbose=False))
+        import warnings
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            model.fit(
+                X_train, y_train,
+                eval_set=[(X_val, y_val)],
+                callbacks=callbacks,
+            )
     else:
         model.fit(X_train, y_train)
     
@@ -191,3 +198,118 @@ def get_feature_importance(model: object, feature_names: list[str], model_type: 
     fi["importance_pct"] = (fi["importance"] / fi["importance"].sum() * 100).round(2)
     
     return fi
+
+
+def train_and_save_all_models(save: bool = True) -> dict:
+    """
+    CatBoost, LightGBM ve Ensemble modellerini eğitir, test seti üzerinde değerlendirir
+    ve istenirse models/ dizinine .joblib formatında kaydeder.
+    """
+    from src.data.fetcher import fetch_all_market_data
+    from src.data.cleaner import clean_market_data
+    from src.features.time_features import create_time_features, get_feature_columns
+    from src.features.market_features import create_market_features
+    from src.models.evaluator import evaluate_model
+    
+    print("=" * 65)
+    print("  EPİAŞ GÖP PTF MODEL EĞİTİM & DOĞRULAMA MOTORU (CLI)")
+    print("=" * 65)
+    
+    # 1. Veri yükle & Öznitelikler
+    print("\n[1/4] Piyasa verileri yükleniyor ve causal öznitelikler üretiliyor...")
+    raw_df = fetch_all_market_data("2024-01-01")
+    clean_df = clean_market_data(raw_df)
+    feat_df = create_time_features(clean_df)
+    feat_df = create_market_features(feat_df)
+    feature_cols = get_feature_columns(feat_df)
+    print(f"      Toplam Satır: {len(feat_df)}, Öznitelik Sayısı: {len(feature_cols)}")
+    
+    # 2. Train / Val / Test Ayrımı
+    print("\n[2/4] Veri seti ayrıştırılıyor (Son 30 gün Test, %10 Val)...")
+    test_size = 30 * 24
+    train_df = feat_df.iloc[:-test_size]
+    test_df = feat_df.iloc[-test_size:]
+    
+    X_train_full = train_df[feature_cols]
+    y_train_full = train_df["ptf"]
+    X_test = test_df[feature_cols]
+    y_test = test_df["ptf"].values
+    
+    val_size = max(1, int(len(train_df) * 0.1))
+    X_val = X_train_full.iloc[-val_size:]
+    y_val = y_train_full.iloc[-val_size:]
+    X_train = X_train_full.iloc[:-val_size]
+    y_train = y_train_full.iloc[:-val_size]
+    
+    # 3. Model Eğitimi
+    print("\n[3/4] Modeller eğitiliyor (CatBoost & LightGBM)...")
+    # CatBoost
+    t0 = time.time()
+    cb_model = train_model(X_train, y_train, X_val, y_val, model_type="catboost", params={"iterations": 800, "verbose": 0})
+    cb_time = time.time() - t0
+    
+    t0 = time.time()
+    cb_preds = cb_model.predict(X_test)
+    cb_infer_ms = ((time.time() - t0) * 1000) / (len(X_test) / 24)
+    cb_metrics = evaluate_model(y_test, cb_preds)
+    cb_metrics["train_time_s"] = cb_time
+    cb_metrics["infer_time_24h_ms"] = cb_infer_ms
+    
+    # LightGBM
+    t0 = time.time()
+    lgb_model = train_model(X_train, y_train, X_val, y_val, model_type="lightgbm", params={"n_estimators": 800, "verbose": -1})
+    lgb_time = time.time() - t0
+    
+    t0 = time.time()
+    lgb_preds = lgb_model.predict(X_test)
+    lgb_infer_ms = ((time.time() - t0) * 1000) / (len(X_test) / 24)
+    lgb_metrics = evaluate_model(y_test, lgb_preds)
+    lgb_metrics["train_time_s"] = lgb_time
+    lgb_metrics["infer_time_24h_ms"] = lgb_infer_ms
+    
+    # Ensemble
+    ens_model = EnsembleModel(cb_model, lgb_model, weights=(0.5, 0.5))
+    t0 = time.time()
+    ens_preds = ens_model.predict(X_test)
+    ens_infer_ms = ((time.time() - t0) * 1000) / (len(X_test) / 24)
+    ens_metrics = evaluate_model(y_test, ens_preds)
+    ens_metrics["train_time_s"] = cb_time + lgb_time
+    ens_metrics["infer_time_24h_ms"] = ens_infer_ms
+    
+    # 4. Modelleri Kaydet
+    saved_paths = {}
+    if save:
+        print("\n[4/4] Eğitilmiş ağırlıklar models/ klasörüne kaydediliyor...")
+        saved_paths["catboost"] = str(save_model(cb_model, "catboost_model"))
+        saved_paths["lightgbm"] = str(save_model(lgb_model, "lightgbm_model"))
+        saved_paths["ensemble"] = str(save_model(ens_model, "ensemble_model"))
+        print(f"      [KAYIT] CatBoost  -> {saved_paths['catboost']}")
+        print(f"      [KAYIT] LightGBM  -> {saved_paths['lightgbm']}")
+        print(f"      [KAYIT] Ensemble  -> {saved_paths['ensemble']}")
+    
+    # Sonuç Tablosu
+    print("\n" + "=" * 65)
+    print(f"{'Model':<12} | {'Test MAPE':<10} | {'Yön Doğ.':<10} | {'RMSE (TL)':<10} | {'Eğitim (s)':<10} | {'24s Infer'}")
+    print("-" * 65)
+    for name, m in [("CatBoost", cb_metrics), ("LightGBM", lgb_metrics), ("Ensemble", ens_metrics)]:
+        status_mape = "[OK]" if m['mape'] < 12.0 else "[FAIL]"
+        status_da = "[OK]" if m['directional_accuracy'] > 70.0 else "[FAIL]"
+        print(f"{name:<12} | %{m['mape']:<5.2f} {status_mape} | %{m['directional_accuracy']:<5.2f} {status_da} | {m['rmse']:<10.2f} | {m['train_time_s']:<10.2f} | {m['infer_time_24h_ms']:<6.2f} ms")
+    print("=" * 65)
+    print("SRS KABUL KRİTERLERİ KONTROLÜ:")
+    print(f"  * Test MAPE < %12.0               : {'BAŞARILI' if ens_metrics['mape'] < 12.0 else 'BAŞARISIZ'} (%{ens_metrics['mape']:.2f})")
+    print(f"  * Yön Doğruluğu > %70.0           : {'BAŞARILI' if ens_metrics['directional_accuracy'] > 70.0 else 'BAŞARISIZ'} (%{ens_metrics['directional_accuracy']:.2f})")
+    print(f"  * 24s Çıkarım Süresi < 500 ms     : {'BAŞARILI' if ens_metrics['infer_time_24h_ms'] < 500 else 'BAŞARISIZ'} ({ens_metrics['infer_time_24h_ms']:.2f} ms)")
+    print("=" * 65 + "\n")
+    
+    return {
+        "catboost": (cb_model, cb_metrics),
+        "lightgbm": (lgb_model, lgb_metrics),
+        "ensemble": (ens_model, ens_metrics),
+        "saved_paths": saved_paths,
+    }
+
+
+if __name__ == "__main__":
+    train_and_save_all_models(save=True)
+

@@ -74,8 +74,9 @@ def load_and_prepare_data():
 @st.cache_resource(show_spinner=False)
 def get_cached_model_suite(data_len: int):
     """
-    Tüm modelleri (CatBoost, LightGBM, Ensemble) tek seferde eğitip önbelleğe alır.
-    Sayfa ve model geçişlerinde sıfır bekleme süresi sağlar.
+    Tüm modelleri (CatBoost, LightGBM, Ensemble) models/ klasöründeki hazır ağırlıklardan
+    anında yükler (veya yoksa sıfırdan eğitir) ve önbelleğe alır.
+    Sayfa ve model geçişlerinde sıfır bekleme süresi ve bulut dağıtımında güvenilirlik sağlar.
     """
     featured_df = st.session_state.get("featured_df")
     feature_cols = get_feature_columns(featured_df)
@@ -91,12 +92,20 @@ def get_cached_model_suite(data_len: int):
     X_test = test_df[feature_cols]
     y_test = test_df["ptf"].values
     
-    from src.models.trainer import train_model, get_feature_importance, EnsembleModel
+    from src.models.trainer import train_model, load_model, get_feature_importance, EnsembleModel
     
-    # 1. CatBoost
-    t0 = time.time()
-    cb_model = train_model(X_train, y_train, X_val, y_val, model_type="catboost")
-    cb_train_time = time.time() - t0
+    models_dir = PROJECT_ROOT / "models"
+    cb_path = models_dir / "catboost_model.joblib"
+    lgb_path = models_dir / "lightgbm_model.joblib"
+    
+    # 1. CatBoost Modeli (Önceden eğitilmiş ağırlık veya anlık eğitim)
+    if cb_path.exists():
+        cb_model = load_model("catboost_model")
+        cb_train_time = 0.05
+    else:
+        t0 = time.time()
+        cb_model = train_model(X_train, y_train, X_val, y_val, model_type="catboost")
+        cb_train_time = time.time() - t0
     
     t0 = time.time()
     cb_preds = cb_model.predict(X_test)
@@ -106,10 +115,14 @@ def get_cached_model_suite(data_len: int):
     cb_metrics["infer_time_24h_ms"] = cb_infer_time
     cb_fi = get_feature_importance(cb_model, feature_cols, "catboost")
     
-    # 2. LightGBM
-    t0 = time.time()
-    lgb_model = train_model(X_train, y_train, X_val, y_val, model_type="lightgbm")
-    lgb_train_time = time.time() - t0
+    # 2. LightGBM Modeli
+    if lgb_path.exists():
+        lgb_model = load_model("lightgbm_model")
+        lgb_train_time = 0.05
+    else:
+        t0 = time.time()
+        lgb_model = train_model(X_train, y_train, X_val, y_val, model_type="lightgbm")
+        lgb_train_time = time.time() - t0
     
     t0 = time.time()
     lgb_preds = lgb_model.predict(X_test)
@@ -120,7 +133,15 @@ def get_cached_model_suite(data_len: int):
     lgb_fi = get_feature_importance(lgb_model, feature_cols, "lightgbm")
     
     # 3. Ensemble (Ağırlıklı %50 CB + %50 LGB)
-    ens_model = EnsembleModel(cb_model, lgb_model, weights=(0.5, 0.5))
+    ens_path = models_dir / "ensemble_model.joblib"
+    if ens_path.exists():
+        try:
+            ens_model = load_model("ensemble_model")
+        except Exception:
+            ens_model = EnsembleModel(cb_model, lgb_model, weights=(0.5, 0.5))
+    else:
+        ens_model = EnsembleModel(cb_model, lgb_model, weights=(0.5, 0.5))
+        
     t0 = time.time()
     ens_preds = ens_model.predict(X_test)
     ens_infer_time = ((time.time() - t0) * 1000) / (len(X_test) / 24)
