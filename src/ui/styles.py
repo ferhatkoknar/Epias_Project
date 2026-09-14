@@ -436,23 +436,29 @@ def get_ticker_bar_html(
     peak_load: float,
     spread_val: float,
     system_direction: str,
+    mode_label: str = "CANLI PIYASA",
+    is_live: bool = False,
+    selected_hour_str: str = "16:00",
 ) -> str:
     """
     Bloomberg/Refinitiv tarzı üst piyasa bilgi ve seans bantı.
     """
     dir_color = "#22c55e" if "FAZLASI" in system_direction else "#f59e0b" if "DENGE" in system_direction else "#ef4444"
+    dot_color = "#22c55e" if is_live else "#38bdf8"
+    ptf_label = "PTF GÜNCEL" if is_live else f"PTF ({selected_hour_str})"
+    
     raw = f"""
     <div style="display: flex; align-items: center; justify-content: space-between; background: #0f141d; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 8px; padding: 8px 16px; margin-bottom: 18px; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: #9ca3af; gap: 12px; flex-wrap: wrap;">
         <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;"></span>
-            <span style="color: #cbd5e1; font-weight: 600;">CANLI PIYASA</span>
+            <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: {dot_color}; box-shadow: 0 0 8px {dot_color};"></span>
+            <span style="color: {'#22c55e' if is_live else '#38bdf8'}; font-weight: 600;">{mode_label}</span>
             <span style="color: #64748b;">|</span>
             <span>TSI: <span style="color: #e2e8f0; font-weight: 600;">{tsi_time_str}</span></span>
             <span style="color: #64748b;">|</span>
             <span style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #60a5fa; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.68rem;">{session_name}</span>
         </div>
         <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-            <div>PTF GÜNCEL: <span style="color: #f8fafc; font-weight: 600;">{last_ptf:,.0f} TL</span></div>
+            <div>{ptf_label}: <span style="color: #f8fafc; font-weight: 600;">{last_ptf:,.0f} TL</span></div>
             <div>BAZ YÜK: <span style="color: #cbd5e1;">{base_load:,.0f} TL</span></div>
             <div>PUANT: <span style="color: #60a5fa; font-weight: 600;">{peak_load:,.0f} TL</span></div>
             <div>SPREAD: <span style="color: {'#22c55e' if spread_val >= 0 else '#ef4444'};">{spread_val:+,.0f} TL</span></div>

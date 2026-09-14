@@ -396,6 +396,18 @@ def render_market_ticker_bar(df_day: pd.DataFrame, model_metrics: dict = None):
     else:
         sys_dir = "DENGEDE"
         
+    # Veri setinin tarihi bugün mü kontrolü (Canlı API vs Tarihsel Veri)
+    today_date = now.date()
+    df_date = df_day["datetime"].dt.date.iloc[0] if len(df_day) > 0 else today_date
+    is_live = (df_date == today_date)
+    
+    if is_live:
+        mode_label = "CANLI PIYASA"
+    else:
+        mode_label = f"TARİHSEL SİMÜLASYON [{df_date.strftime('%d.%m.%Y')}]"
+        
+    selected_hour_str = f"{hour:02d}:00"
+    
     from src.ui.styles import get_ticker_bar_html, render_html
     render_html(get_ticker_bar_html(
         tsi_time_str=tsi_time_str,
@@ -405,6 +417,9 @@ def render_market_ticker_bar(df_day: pd.DataFrame, model_metrics: dict = None):
         peak_load=peak_load,
         spread_val=spread_val,
         system_direction=sys_dir,
+        mode_label=mode_label,
+        is_live=is_live,
+        selected_hour_str=selected_hour_str,
     ))
 
 
