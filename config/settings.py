@@ -6,6 +6,10 @@ Tüm sabitler, API ayarları, model parametreleri ve UI konfigürasyonu burada t
 import os
 from pathlib import Path
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+
+# .env dosyasını yükle
+load_dotenv()
 
 # ─────────────────────────── Dizin Yapısı ───────────────────────────
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -15,8 +19,14 @@ PROCESSED_DATA_DIR = DATA_DIR / "processed"
 CACHE_DIR = DATA_DIR / "cache"
 MODELS_DIR = PROJECT_ROOT / "models"
 
+# ─────────────────────────── EPİAŞ Şeffaflık 2.0 Kimlik Bilgileri ───────────────────────────
+EPIAS_USERNAME = os.getenv("EPIAS_USERNAME") or os.getenv("EPTR_USERNAME") or os.getenv("EPTR2_USERNAME", "")
+EPIAS_PASSWORD = os.getenv("EPIAS_PASSWORD") or os.getenv("EPTR_PASSWORD") or os.getenv("EPTR2_PASSWORD", "")
+
 # ─────────────────────────── EPİAŞ API Ayarları ───────────────────────────
 API_CONFIG = {
+    "username": EPIAS_USERNAME,
+    "password": EPIAS_PASSWORD,
     "start_date": "2024-01-01",
     "end_date": datetime.now().strftime("%Y-%m-%d"),
     "timezone": "Europe/Istanbul",

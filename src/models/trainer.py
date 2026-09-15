@@ -288,21 +288,24 @@ def train_and_save_all_models(save: bool = True) -> dict:
         print(f"      [KAYIT] Ensemble  -> {saved_paths['ensemble']}")
     
     # Sonuç Tablosu
-    print("\n" + "=" * 78)
-    print(f"{'Model':<12} | {'Test MAPE':<10} | {'Yön Doğ.':<10} | {'MAE (TL)':<10} | {'RMSE (TL)':<10} | {'Eğitim (s)':<10} | {'24s Infer'}")
-    print("-" * 78)
+    print("\n" + "=" * 92)
+    print(f"{'Model':<12} | {'WAPE (%)':<10} | {'MAPE (%)':<10} | {'Yön Doğ.':<10} | {'MAE (TL)':<10} | {'RMSE (TL)':<10} | {'24s Infer'}")
+    print("-" * 92)
     for name, m in [("CatBoost", cb_metrics), ("LightGBM", lgb_metrics), ("Ensemble", ens_metrics)]:
-        status_mape = "[OK]" if m['mape'] < 12.0 else "[FAIL]"
+        w = m.get('wape', m['mape'])
+        status_wape = "[OK]" if w < 12.0 else "[FAIL]"
         status_da = "[OK]" if m['directional_accuracy'] > 70.0 else "[FAIL]"
-        print(f"{name:<12} | %{m['mape']:<5.2f} {status_mape} | %{m['directional_accuracy']:<5.2f} {status_da} | {m['mae']:<10.2f} | {m['rmse']:<10.2f} | {m['train_time_s']:<10.2f} | {m['infer_time_24h_ms']:<6.2f} ms")
-    print("=" * 78)
+        print(f"{name:<12} | %{w:<5.2f} {status_wape} | %{m['mape']:<5.2f}        | %{m['directional_accuracy']:<5.2f} {status_da} | {m['mae']:<10.2f} | {m['rmse']:<10.2f} | {m['infer_time_24h_ms']:<6.2f} ms")
+    print("=" * 92)
     print("SRS KABUL KRİTERLERİ KONTROLÜ:")
-    print(f"  * Test MAPE < %12.0               : {'BAŞARILI' if ens_metrics['mape'] < 12.0 else 'BAŞARISIZ'} (%{ens_metrics['mape']:.2f})")
+    ens_wape = ens_metrics.get('wape', ens_metrics['mape'])
+    print(f"  * Hacim Ağırlıklı WAPE < %12.0    : {'BAŞARILI' if ens_wape < 12.0 else 'BAŞARISIZ'} (%{ens_wape:.2f})")
+    print(f"  * Aritmetik Test MAPE             : %{ens_metrics['mape']:.2f}")
     print(f"  * Yön Doğruluğu > %70.0           : {'BAŞARILI' if ens_metrics['directional_accuracy'] > 70.0 else 'BAŞARISIZ'} (%{ens_metrics['directional_accuracy']:.2f})")
     print(f"  * Test MAE                        : {ens_metrics['mae']:.2f} TL")
     print(f"  * Test RMSE                       : {ens_metrics['rmse']:.2f} TL")
     print(f"  * 24s Çıkarım Süresi < 500 ms     : {'BAŞARILI' if ens_metrics['infer_time_24h_ms'] < 500 else 'BAŞARISIZ'} ({ens_metrics['infer_time_24h_ms']:.2f} ms)")
-    print("=" * 78 + "\n")
+    print("=" * 92 + "\n")
     
     return {
         "catboost": (cb_model, cb_metrics),

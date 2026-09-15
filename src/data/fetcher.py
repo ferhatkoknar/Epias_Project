@@ -22,10 +22,18 @@ DATA_CACHE = PROJECT_ROOT / "data" / "cache"
 
 
 def get_epias_credentials():
-    """Çevre değişkenlerinden veya .env dosyasından EPİAŞ kullanıcı bilgilerini alır."""
+    """Çevre değişkenlerinden veya .env dosyasından EPİAŞ Şeffaflık 2.0 kullanıcı bilgilerini alır."""
     load_dotenv(override=True)
-    username = os.getenv("EPTR_USERNAME") or os.getenv("EPTR2_USERNAME")
-    password = os.getenv("EPTR_PASSWORD") or os.getenv("EPTR2_PASSWORD")
+    username = (
+        os.getenv("EPIAS_USERNAME")
+        or os.getenv("EPTR_USERNAME")
+        or os.getenv("EPTR2_USERNAME")
+    )
+    password = (
+        os.getenv("EPIAS_PASSWORD")
+        or os.getenv("EPTR_PASSWORD")
+        or os.getenv("EPTR2_PASSWORD")
+    )
     if username and password and username.strip() and password.strip():
         return username.strip(), password.strip()
     return None, None
@@ -50,18 +58,18 @@ def get_tgt_token(username: str, password: str) -> str:
 
 def fetch_ptf_data(start_date: str = "2024-01-01", end_date: str = None) -> pd.DataFrame:
     """
-    EPİAŞ API'sinden saatlik PTF verilerini çeker.
-    API erişimi yoksa şablon (NaN) döner.
+    EPİAŞ Şeffaflık 2.0 API'sinden saatlik PTF verilerini çeker (eptr2 'mcp' çağrısı).
+    API erişimi yoksa veya bağlantı başarısızsa yerel Parquet önbelleğinden kesintisiz okur.
     """
     if end_date is None:
         end_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
         
     username, password = get_epias_credentials()
     if username and password:
-        # 1. Yöntem: EPTR2 kütüphanesi
+        # 1. Yöntem: EPTR2 istemcisi (Şeffaflık 2.0 e-posta / şifre)
         try:
             from eptr2 import EPTR2
-            client = EPTR2()
+            client = EPTR2(username=username, password=password)
             res = client.call("mcp", start_date=start_date, end_date=end_date)
             if hasattr(res, "to_dataframe"):
                 df = res.to_dataframe()
@@ -127,7 +135,7 @@ def fetch_smf_data(start_date: str = "2024-01-01", end_date: str = None) -> pd.D
     if username and password:
         try:
             from eptr2 import EPTR2
-            client = EPTR2()
+            client = EPTR2(username=username, password=password)
             res = client.call("smp", start_date=start_date, end_date=end_date)
             if hasattr(res, "to_dataframe"):
                 df = res.to_dataframe()
