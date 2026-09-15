@@ -96,11 +96,11 @@ def fetch_ptf_data(start_date: str = "2024-01-01", end_date: str = None) -> pd.D
         except Exception as e:
             logger.warning(f"EPTR2 çağrısı başarısız: {e}. Doğrudan CAS deneniyor...")
             
-        # 2. Yöntem: Doğrudan EPİAŞ REST API (TGT ile)
+        # 2. Yöntem: Doğrudan EPİAŞ Şeffaflık 2.0 REST API (CAS TGT ile)
         try:
             tgt = get_tgt_token(username, password)
             if tgt:
-                url = "https://seffaflik.epias.com.tr/reporting-service/v1/data/daily-prices"
+                url = "https://seffaflik.epias.com.tr/electricity-service/v1/markets/dam/data/mcp"
                 headers = {"TGT": tgt, "Content-Type": "application/json"}
                 body = {
                     "startDate": f"{start_date}T00:00:00+03:00",
@@ -108,12 +108,16 @@ def fetch_ptf_data(start_date: str = "2024-01-01", end_date: str = None) -> pd.D
                 }
                 r = requests.post(url, json=body, headers=headers, timeout=15)
                 if r.status_code == 200:
-                    items = r.json().get("items", [])
+                    resp_json = r.json()
+                    items = resp_json.get("items", []) if isinstance(resp_json, dict) else resp_json
                     if items:
                         df = pd.DataFrame(items)
-                        if "date" in df.columns and "price" in df.columns:
+                        if "date" in df.columns:
                             df["datetime"] = pd.to_datetime(df["date"])
-                            df["ptf"] = df["price"].astype(float)
+                            if "price" in df.columns:
+                                df["ptf"] = df["price"].astype(float)
+                            elif "priceTry" in df.columns:
+                                df["ptf"] = df["priceTry"].astype(float)
                             df = df[["datetime", "ptf"]].dropna()
                             cache_path = DATA_CACHE / "ptf_latest.parquet"
                             cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -127,12 +131,13 @@ def fetch_ptf_data(start_date: str = "2024-01-01", end_date: str = None) -> pd.D
 
 
 def fetch_smf_data(start_date: str = "2024-01-01", end_date: str = None) -> pd.DataFrame:
-    """EPİAŞ API'sinden saatlik SMF verilerini çeker."""
+    """EPİAŞ Şeffaflık 2.0 API'sinden saatlik SMF verilerini çeker."""
     if end_date is None:
         end_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
         
     username, password = get_epias_credentials()
     if username and password:
+        # 1. Yöntem: EPTR2 istemcisi
         try:
             from eptr2 import EPTR2
             client = EPTR2(username=username, password=password)
@@ -160,7 +165,37 @@ def fetch_smf_data(start_date: str = "2024-01-01", end_date: str = None) -> pd.D
                 df.to_parquet(cache_path, engine="pyarrow")
                 return df
         except Exception as e:
-            logger.warning(f"SMF çekme hatası: {e}")
+            logger.warning(f"EPTR2 SMF çekme hatası: {e}. Doğrudan REST deneniyor...")
+
+        # 2. Yöntem: Doğrudan EPİAŞ Şeffaflık 2.0 REST API (CAS TGT ile)
+        try:
+            tgt = get_tgt_token(username, password)
+            if tgt:
+                url = "https://seffaflik.epias.com.tr/electricity-service/v1/markets/bpm/data/system-marginal-price"
+                headers = {"TGT": tgt, "Content-Type": "application/json"}
+                body = {
+                    "startDate": f"{start_date}T00:00:00+03:00",
+                    "endDate": f"{end_date}T23:00:00+03:00"
+                }
+                r = requests.post(url, json=body, headers=headers, timeout=15)
+                if r.status_code == 200:
+                    resp_json = r.json()
+                    items = resp_json.get("items", []) if isinstance(resp_json, dict) else resp_json
+                    if items:
+                        df = pd.DataFrame(items)
+                        if "date" in df.columns:
+                            df["datetime"] = pd.to_datetime(df["date"])
+                            if "price" in df.columns:
+                                df["smf"] = df["price"].astype(float)
+                            elif "priceTry" in df.columns:
+                                df["smf"] = df["priceTry"].astype(float)
+                            df = df[["datetime", "smf"]].dropna()
+                            cache_path = DATA_CACHE / "smf_latest.parquet"
+                            cache_path.parent.mkdir(parents=True, exist_ok=True)
+                            df.to_parquet(cache_path, engine="pyarrow")
+                            return df
+        except Exception as e:
+            logger.warning(f"Doğrudan EPİAŞ SMF REST API hatası: {e}")
 
     return _load_from_cache("smf_latest.parquet", start_date, end_date, is_smf=True)
 
