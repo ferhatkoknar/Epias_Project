@@ -35,8 +35,11 @@ def clean_market_data(df: pd.DataFrame) -> pd.DataFrame:
     # 2. Eksik saatleri doldur
     df = _fill_missing_hours(df)
     
-    # 3. Aykırı değerleri temizle
+    # 2b. Henüz kesinleşmemiş SMF gibi uç değerleri son bilinen değerle tamamla
     numeric_cols = df.select_dtypes(include=[np.number]).columns
+    df[numeric_cols] = df[numeric_cols].ffill().bfill()
+    
+    # 3. Aykırı değerleri temizle
     for col in numeric_cols:
         df = _handle_outliers(df, col)
     

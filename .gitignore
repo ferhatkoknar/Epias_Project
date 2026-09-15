@@ -52,3 +52,6 @@ catboost_info/
 # Local Agent Memory
 AGENTS.md
 GEMINI.md
+
+# EPTR2 auth cache
+.eptr2-tgt

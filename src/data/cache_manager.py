@@ -105,13 +105,24 @@ def process_and_cache_real_epias_data():
     # Ham yedek csv
     ptf_df.to_csv(DATA_RAW / "epias_real_ptf.csv", index=False)
     
-    # 2. SMF uyumlu önbellek (SMF yoksa gerçek PTF tabanlı spread ile fallback)
-    np.random.seed(42)
-    spread = np.random.normal(35, 110, len(ptf_df))
-    smf_df = ptf_df.copy()
-    smf_df["smf"] = np.maximum(ptf_df["ptf"] - spread, 50.0).astype(np.float32)
+    # 2. SMF verisi: Canlı API'den çekilir, yapay üretim KESINLIKLE yapılmaz
     smf_cache_path = DATA_CACHE / "smf_latest.parquet"
-    smf_df[["datetime", "smf"]].to_parquet(smf_cache_path, engine="pyarrow")
+    try:
+        from src.data.fetcher import fetch_smf_data
+        min_date_str = min_dt.strftime("%Y-%m-%d") if hasattr(min_dt, 'strftime') else str(min_dt)[:10]
+        max_date_str = max_dt.strftime("%Y-%m-%d") if hasattr(max_dt, 'strftime') else str(max_dt)[:10]
+        smf_df = fetch_smf_data(start_date=min_date_str, end_date=max_date_str)
+        if not smf_df.empty and "smf" in smf_df.columns and smf_df["smf"].notna().any():
+            if smf_cache_path.exists():
+                existing_smf = pd.read_parquet(smf_cache_path)
+                if len(smf_df) >= len(existing_smf):
+                    smf_df[["datetime", "smf"]].to_parquet(smf_cache_path, engine="pyarrow")
+                    logger.info(f"Gerçek SMF verisi API'den güncellendi: {len(smf_df)} saat.")
+            else:
+                smf_df[["datetime", "smf"]].to_parquet(smf_cache_path, engine="pyarrow")
+                logger.info(f"Gerçek SMF verisi API'den çekildi: {len(smf_df)} saat.")
+    except Exception as e:
+        logger.warning(f"SMF veri senkronizasyon hatası: {e}.")
     
     logger.info(f"Gerçek veri önbelleklendi: {len(ptf_df)} saat ({min_dt} -> {max_dt}).")
     return True
